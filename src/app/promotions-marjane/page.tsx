@@ -4,7 +4,7 @@ import OfferCard from "./offer-card";
 import CategoryFilters from "@/components/category-filters";
 import { getCategoryIcon } from "@/lib/category-icons";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export const metadata = {
   title: "Promotions Marjane - Offres et bons plans au Maroc",

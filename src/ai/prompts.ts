@@ -81,9 +81,16 @@ RULES:
 4. Prioritize useful information for Moroccan shoppers looking for deals.
 5. Use relevant search terms naturally: catalogue Marjane, promotions Marjane, offres Marjane, bons plans Marjane, prix Marjane.
 6. Do NOT keyword stuff. Use terms only when they flow naturally.
-7. Include product comparison tables when comparing similar products.
-8. Be concise and information-dense. No filler content.
-9. Every product price must correspond EXACTLY to the supplied data.
+7. Be concise and information-dense. No filler content.
+8. Every product price must correspond EXACTLY to the supplied data.
+9. When product images are available (indicated by [Image: URL] in the data), include them in the article using markdown image syntax: ![Product Name](URL). Place images near the relevant product description.
+10. Always mention the store type (Marjane, Marjane Hyper, or Marjane Market) in the article introduction and naturally throughout the content.
+11. Present products in tables with compact formatting. Use this format for each product:
+    | Image | Product | Price | Discount |
+    |-------|---------|-------|----------|
+    | ![Name](URL) | Product Name | Price DH | -X% |
+    Keep images small (use standard markdown image syntax, the styling will handle sizing).
+12. When page images are available for categories (indicated by [Page Image: URL] in the data), include them as section headers or visual breaks between category sections.
 
 INTERNAL LINKS & REFERENCES — USE ONLY THESE EXACT FORMATS:
 10. Catalogue page link: [Voir page X](/catalogue-marjane/{CATALOGUE_SLUG}/page/{pageNumber})

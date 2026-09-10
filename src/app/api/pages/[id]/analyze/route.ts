@@ -34,7 +34,7 @@ export async function POST(
     let aiResponse: string;
     try {
       if (page.imagePath) {
-        const imageBase64 = await imageToBase64(page.imagePath);
+        const imageBase64 = await imageToBase64(page.imagePath, page.catalogueId);
         const textContext = page.extractedText
           ? `\n\nExtracted text from PDF:\n${page.extractedText}`
           : "";
@@ -102,9 +102,9 @@ export async function POST(
       }
 
       if (product.boundingBox && page.imagePath && !dbProduct.imageUrl) {
-        const outputPath = `${require("path").dirname(page.imagePath)}/../products/${dbProduct.id}-page${page.pageNumber}.jpg`;
+        const outputPath = `${require("path").dirname(page.imagePath)}/../products/${dbProduct.id}-page${page.pageNumber}.webp`;
         try {
-          const cropped = await cropProductImage(page.imagePath, product.boundingBox, outputPath);
+          const cropped = await cropProductImage(page.imagePath, product.boundingBox, outputPath, page.catalogueId);
           if (cropped) {
             await prisma.product.update({
               where: { id: dbProduct.id },

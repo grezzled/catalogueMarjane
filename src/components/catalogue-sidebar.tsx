@@ -50,7 +50,7 @@ export default function CatalogueSidebar({ articles, categories, currentCategory
                     </span>
                   )}
                 </div>
-                <p className="text-sm font-medium text-gray-900 group-hover:text-red-600 transition-colors leading-snug mt-1 line-clamp-2">
+                <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors leading-snug mt-1 line-clamp-2">
                   {article.title}
                 </p>
                 {article.excerpt && (
@@ -64,7 +64,7 @@ export default function CatalogueSidebar({ articles, categories, currentCategory
           {articles.length > 5 && (
             <Link
               href="/articles"
-              className="block text-center text-xs text-red-500 hover:text-red-600 font-medium mt-4 pt-3 border-t border-gray-100"
+              className="block text-center text-xs text-blue-500 hover:text-blue-600 font-medium mt-4 pt-3 border-t border-gray-100"
             >
               Voir tous les articles
             </Link>
@@ -90,8 +90,8 @@ export default function CatalogueSidebar({ articles, categories, currentCategory
                   href={`/category/${cat.slug}`}
                   className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all ${
                     isCurrent
-                      ? "bg-red-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-600"
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-blue-50 hover:text-blue-600"
                   }`}
                 >
                   <Icon className="h-3 w-3" />
@@ -103,7 +103,7 @@ export default function CatalogueSidebar({ articles, categories, currentCategory
         </div>
       )}
 
-      <div className="bg-gradient-to-br from-gray-100 to-gray-50 border border-gray-200 rounded-xl p-5">
+      {/*<div className="bg-gradient-to-br from-gray-100 to-gray-50 border border-gray-200 rounded-xl p-5">
         <div className="flex items-center gap-2 mb-3">
           <div className="bg-gray-200 rounded-lg p-1.5">
             <Megaphone className="h-4 w-4 text-gray-500" />
@@ -113,7 +113,7 @@ export default function CatalogueSidebar({ articles, categories, currentCategory
         <div className="bg-gray-200/50 rounded-lg h-32 flex items-center justify-center">
           <span className="text-xs text-gray-400">Espace publicitaire</span>
         </div>
-      </div>
+      </div>*/}
     </aside>
   );
 }

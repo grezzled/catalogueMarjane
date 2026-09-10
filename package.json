@@ -11,6 +11,7 @@
     "db:push": "npx prisma db push",
     "db:studio": "npx prisma studio",
     "db:generate": "npx prisma generate",
+    "migrate:webp": "npx tsx scripts/migrate-to-webp.ts",
     "postinstall": "prisma generate && prisma skills sync || exit 0"
   },
   "dependencies": {

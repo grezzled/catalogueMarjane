@@ -6,6 +6,7 @@ import Link from "next/link";
 interface Catalogue {
   id: string;
   title: string;
+  store: string;
   slug: string;
   type: string;
   status: string;
@@ -47,6 +48,7 @@ export default function CataloguesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     title: "",
+    store: "marjane",
     type: "weekly",
     startDate: "",
     endDate: "",
@@ -56,6 +58,9 @@ export default function CataloguesPage() {
   });
   const [processing, setProcessing] = useState<Record<string, boolean>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", store: "marjane", type: "weekly", startDate: "", endDate: "", sourceUrl: "" });
+  const [saving, setSaving] = useState(false);
   const pollIntervals = useRef<Record<string, NodeJS.Timeout>>({});
 
   const addToast = useCallback((message: string, type: Toast["type"] = "info") => {
@@ -127,7 +132,7 @@ export default function CataloguesPage() {
         return;
       }
       addToast("Catalogue uploaded successfully", "success");
-      setFormData({ title: "", type: "weekly", startDate: "", endDate: "", description: "", sourceUrl: "", language: "fr" });
+      setFormData({ title: "", store: "marjane", type: "weekly", startDate: "", endDate: "", description: "", sourceUrl: "", language: "fr" });
       if (fileInputRef.current) fileInputRef.current.value = "";
       fetchCatalogues();
     } catch (err) {
@@ -239,6 +244,49 @@ export default function CataloguesPage() {
   function getStatusLabel(status: string, paused: boolean) {
     if (paused) return "PAUSED";
     return status;
+  }
+
+  function openEdit(c: Catalogue) {
+    setEditId(c.id);
+    setEditForm({
+      title: c.title,
+      store: c.store || "marjane",
+      type: c.type,
+      startDate: c.startDate.slice(0, 10),
+      endDate: c.endDate.slice(0, 10),
+      sourceUrl: "",
+    });
+  }
+
+  async function handleSaveEdit() {
+    if (!editId) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/catalogues/${editId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editForm.title,
+          store: editForm.store,
+          type: editForm.type,
+          startDate: editForm.startDate,
+          endDate: editForm.endDate,
+          sourceUrl: editForm.sourceUrl || null,
+        }),
+      });
+      if (res.ok) {
+        addToast("Catalogue updated", "success");
+        setEditId(null);
+        fetchCatalogues();
+      } else {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        addToast(err.error || "Failed to save", "error");
+      }
+    } catch {
+      addToast("Network error", "error");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function getPageStatusColor(status: string) {
@@ -381,22 +429,31 @@ export default function CataloguesPage() {
                   placeholder="Catalogue Marjane" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Store *</label>
+                <select value={formData.store}
+                  onChange={(e) => setFormData({ ...formData, store: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2">
+                  <option value="marjane">Marjane</option>
+                  <option value="marjane_market">Marjane Market</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                 <select value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                   className="w-full border border-gray-300 rounded-md px-3 py-2">
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="seasonal">Seasonal</option>
-                  <option value="rentree">Rentrée</option>
+                  <option value="weekly">Hebdomadaire</option>
+                  <option value="monthly">Mensuel</option>
+                  <option value="seasonal">Saisonnier</option>
+                  <option value="rentree">Rentrée Scolaire</option>
                   <option value="ramadan">Ramadan</option>
-                  <option value="eid">Eid</option>
-                  <option value="technology">Technology</option>
-                  <option value="home">Home</option>
-                  <option value="food">Food</option>
-                  <option value="supermarket">Supermarket</option>
-                  <option value="special_promotion">Special Promotion</option>
-                  <option value="other">Other</option>
+                  <option value="eid">Aid</option>
+                  <option value="technology">High-Tech</option>
+                  <option value="home">Maison</option>
+                  <option value="food">Alimentation</option>
+                  <option value="supermarket">Supermarché</option>
+                  <option value="special_promotion">Promotion Spéciale</option>
+                  <option value="other">Autre</option>
                 </select>
               </div>
               <div>
@@ -459,8 +516,20 @@ export default function CataloguesPage() {
                     <tr onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
                       className={`cursor-pointer transition-colors ${expandedId === c.id ? "bg-blue-50" : "hover:bg-gray-50"}`}>
                       <td className="px-6 py-4">
-                        <Link href={`/admin/catalogues/${c.id}`} onClick={(e) => e.stopPropagation()}
-                          className="text-blue-600 hover:underline font-medium">{c.title}</Link>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/admin/catalogues/${c.id}`} onClick={(e) => e.stopPropagation()}
+                            className="text-blue-600 hover:underline font-medium">{c.title}</Link>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEdit(c); }}
+                            className="text-gray-400 hover:text-blue-600 transition-colors shrink-0"
+                            title="Edit catalogue"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {c.store === "marjane_market" ? "Marjane Market" : "Marjane"}
+                        </p>
                         <p className="text-sm text-gray-500">
                           {new Date(c.startDate).toLocaleDateString("fr-FR")} → {new Date(c.endDate).toLocaleDateString("fr-FR")}
                         </p>
@@ -522,6 +591,82 @@ export default function CataloguesPage() {
           </div>
         )}
       </div>
+
+      {editId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setEditId(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold text-gray-900">Edit Catalogue</h3>
+              <button onClick={() => setEditId(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input type="text" value={editForm.title}
+                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Store</label>
+                <select value={editForm.store}
+                  onChange={(e) => setEditForm((f) => ({ ...f, store: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="marjane">Marjane</option>
+                  <option value="marjane_market">Marjane Market</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select value={editForm.type}
+                  onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="weekly">Hebdomadaire</option>
+                  <option value="monthly">Mensuel</option>
+                  <option value="seasonal">Saisonnier</option>
+                  <option value="rentree">Rentrée Scolaire</option>
+                  <option value="ramadan">Ramadan</option>
+                  <option value="eid">Aid</option>
+                  <option value="technology">High-Tech</option>
+                  <option value="home">Maison</option>
+                  <option value="food">Alimentation</option>
+                  <option value="supermarket">Supermarché</option>
+                  <option value="special_promotion">Promotion Spéciale</option>
+                  <option value="other">Autre</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <input type="date" value={editForm.startDate}
+                    onChange={(e) => setEditForm((f) => ({ ...f, startDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                  <input type="date" value={editForm.endDate}
+                    onChange={(e) => setEditForm((f) => ({ ...f, endDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Source URL</label>
+                <input type="url" value={editForm.sourceUrl}
+                  onChange={(e) => setEditForm((f) => ({ ...f, sourceUrl: e.target.value }))}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setEditId(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+              <button onClick={handleSaveEdit} disabled={saving || !editForm.title.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

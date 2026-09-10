@@ -4,6 +4,7 @@ import { computeFileHash } from "@/services/pdf";
 import { generateCatalogueSlug } from "@/lib/utils";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { revalidateSite } from "@/lib/revalidate";
 
 export async function GET() {
   try {
@@ -12,6 +13,7 @@ export async function GET() {
       select: {
         id: true,
         title: true,
+        store: true,
         slug: true,
         type: true,
         status: true,
@@ -43,6 +45,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("pdf") as File;
     const title = formData.get("title") as string;
+    const store = (formData.get("store") as string) || "marjane";
     const type = formData.get("type") as string;
     const startDate = formData.get("startDate") as string;
     const endDate = formData.get("endDate") as string;
@@ -82,6 +85,7 @@ export async function POST(request: NextRequest) {
         title,
         slug,
         description,
+        store,
         type: type as any,
         language,
         startDate: new Date(startDate),
@@ -104,6 +108,8 @@ export async function POST(request: NextRequest) {
       where: { id: catalogue.id },
       data: { pdfPath },
     });
+
+    revalidateSite();
 
     return NextResponse.json(catalogue, { status: 201 });
   } catch (error) {

@@ -1,5 +1,6 @@
 import "./globals.css";
 import Link from "next/link";
+import Navbar from "@/components/navbar";
 
 export const metadata = {
   title: {
@@ -8,6 +9,9 @@ export const metadata = {
   },
   description:
     "Découvrez les catalogues Marjane avec toutes les promotions, offres et bons plans au Maroc.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -18,33 +22,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="antialiased">
-        <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/" className="text-xl font-bold text-red-600">
-              Catalogue Marjane
-            </Link>
-            <div className="flex items-center gap-6 text-sm">
-              <Link
-                href="/catalogue-marjane"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Catalogues
-              </Link>
-              <Link
-                href="/promotions-marjane"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Promotions
-              </Link>
-              <Link
-                href="/articles"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Articles
-              </Link>
-            </div>
-          </div>
-        </nav>
+        <Navbar />
         <main>{children}</main>
         <footer className="bg-gray-900 text-gray-400 mt-16">
           <div className="max-w-7xl mx-auto px-4 py-8">

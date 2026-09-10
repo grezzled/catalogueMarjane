@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# full-resolution images for AI analysis (not needed in git)
+uploads-original/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

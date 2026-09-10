@@ -10,6 +10,7 @@ datasource db {
 model Catalogue {
   id            String   @id @default(uuid())
   title         String
+  store         String   @default("marjane")
   slug          String   @unique
   description   String?
   type          String   @default("weekly")

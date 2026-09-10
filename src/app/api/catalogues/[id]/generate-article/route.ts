@@ -20,18 +20,26 @@ export async function POST(
       );
     }
 
-    generateArticleForCatalogue(id).catch((err) => {
-      console.error("Article generation error:", err);
-    });
+    const result = await generateArticleForCatalogue(id);
 
-    return NextResponse.json({
-      success: true,
-      message: "Article generation started",
-    });
+    if (result.success) {
+      return NextResponse.json({
+        success: true,
+        articleId: result.articleId,
+        logs: result.logs,
+        message: "Article generated successfully",
+      });
+    } else {
+      return NextResponse.json({
+        success: false,
+        error: result.error,
+        logs: result.logs,
+      }, { status: 500 });
+    }
   } catch (error) {
-    console.error("Error starting article generation:", error);
+    console.error("Error generating article:", error);
     return NextResponse.json(
-      { error: "Failed to start article generation" },
+      { error: "Failed to generate article" },
       { status: 500 }
     );
   }

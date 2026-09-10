@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { revalidateSite } from "@/lib/revalidate";
 
 export async function POST(
   request: NextRequest,
@@ -42,6 +43,7 @@ export async function POST(
             publishedAt: new Date(),
           },
         });
+        revalidateSite();
         return NextResponse.json({ success: true });
 
       case "unpublish":
@@ -52,10 +54,12 @@ export async function POST(
             publishedAt: null,
           },
         });
+        revalidateSite();
         return NextResponse.json({ success: true });
 
       case "delete":
         await prisma.article.delete({ where: { id } });
+        revalidateSite();
         return NextResponse.json({ success: true });
 
       default:

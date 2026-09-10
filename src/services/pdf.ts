@@ -66,9 +66,13 @@ export async function renderPDFPages(
   catalogueId: string,
   pageCount: number
 ): Promise<{ pageNumber: number; imagePath: string }[]> {
-  const uploadDir = path.join(process.cwd(), "uploads", catalogueId);
+  const uploadDir = path.join(process.env.UPLOAD_DIR || "./public/uploads", catalogueId);
   const pagesDir = path.join(uploadDir, "pages");
   await fs.mkdir(pagesDir, { recursive: true });
+
+  // Create the original (full-resolution) directory
+  const originalDir = path.join(process.env.UPLOAD_DIR_ORIGINAL || "./uploads-original", catalogueId, "pages");
+  await fs.mkdir(originalDir, { recursive: true });
 
   const results: { pageNumber: number; imagePath: string }[] = [];
   const tempPdf = path.join(uploadDir, "temp.pdf");
@@ -77,16 +81,22 @@ export async function renderPDFPages(
   const { execSync } = await import("child_process");
 
   try {
+    // Render PDF to JPEG at 200 DPI in the original directory (full resolution)
     execSync(
-      `pdftoppm -jpeg -r 200 "${tempPdf}" "${path.join(pagesDir, "page")}"`,
+      `pdftoppm -jpeg -r 200 "${tempPdf}" "${path.join(originalDir, "page")}"`,
       { timeout: 120000 }
     );
 
     for (let i = 1; i <= pageCount; i++) {
-      const imagePath = path.join(pagesDir, `page-${String(i).padStart(2, "0")}.jpg`);
+      const paddedNum = String(i).padStart(2, "0");
+      const originalJpgPath = path.join(originalDir, `page-${paddedNum}.jpg`);
+      const webpPath = path.join(pagesDir, `page-${paddedNum}.webp`);
       try {
-        await fs.access(imagePath);
-        results.push({ pageNumber: i, imagePath });
+        await fs.access(originalJpgPath);
+        // Convert original JPEG to WebP for public display
+        const buffer = await fs.readFile(originalJpgPath);
+        await sharp(buffer).webp({ quality: 80 }).toFile(webpPath);
+        results.push({ pageNumber: i, imagePath: webpPath });
       } catch {
         console.warn(`Page ${i} image not found, skipping`);
       }
@@ -100,11 +110,52 @@ export async function renderPDFPages(
   return results;
 }
 
-export async function imageToBase64(imagePath: string): Promise<string> {
-  const buffer = await fs.readFile(imagePath);
+/**
+ * Get the path to the original full-resolution page image for AI analysis.
+ * Falls back to the WebP path if the original doesn't exist.
+ */
+export function getOriginalPageImagePath(
+  webpImagePath: string,
+  catalogueId?: string
+): string {
+  // Try to derive the original path from the webp path
+  if (catalogueId) {
+    const originalDir = path.join(
+      process.env.UPLOAD_DIR_ORIGINAL || "./uploads-original",
+      catalogueId,
+      "pages"
+    );
+    // Extract the page number from the webp filename (e.g., "page-01.webp" -> "page-01")
+    const basename = path.basename(webpImagePath, ".webp");
+    const originalPath = path.join(originalDir, `${basename}.jpg`);
+    return originalPath;
+  }
+
+  // Fallback: try to find the original by replacing path segments
+  const originalBase = webpImagePath
+    .replace(/\/public\/uploads\//, "/uploads-original/")
+    .replace(/\.webp$/, ".jpg");
+  return originalBase;
+}
+
+export async function imageToBase64(
+  imagePath: string,
+  catalogueId?: string
+): Promise<string> {
+  // Try to use the original full-resolution image for AI analysis
+  const originalPath = getOriginalPageImagePath(imagePath, catalogueId);
+  let readPath = imagePath;
+  try {
+    await fs.access(originalPath);
+    readPath = originalPath;
+  } catch {
+    // Original not found, use the provided path
+  }
+
+  const buffer = await fs.readFile(readPath);
   const resized = await sharp(buffer)
     .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 85 })
+    .webp({ quality: 80 })
     .toBuffer();
   return resized.toString("base64");
 }

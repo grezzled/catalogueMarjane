@@ -30,7 +30,7 @@ export async function POST(
       process.env as Record<string, string | undefined>
     );
 
-    const imageBase64 = await imageToBase64(page.imagePath);
+    const imageBase64 = await imageToBase64(page.imagePath, page.catalogueId);
     const textContext = page.extractedText
       ? `\n\nExtracted text from PDF:\n${page.extractedText}`
       : "";
@@ -55,8 +55,8 @@ export async function POST(
 
       if (!dbProduct || dbProduct.imageUrl) continue;
 
-      const outputPath = `${productsDir}/${dbProduct.id}-page${page.pageNumber}.jpg`;
-      const result = await cropProductImage(page.imagePath, product.boundingBox, outputPath);
+      const outputPath = `${productsDir}/${dbProduct.id}-page${page.pageNumber}.webp`;
+      const result = await cropProductImage(page.imagePath, product.boundingBox, outputPath, page.catalogueId);
       if (result) {
         await prisma.product.update({
           where: { id: dbProduct.id },

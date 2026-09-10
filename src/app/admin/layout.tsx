@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LogoutButton from "@/components/logout-button";
 
 export default function AdminLayout({
   children,
@@ -24,6 +25,7 @@ export default function AdminLayout({
           <Link href="/" className="hover:text-gray-300">
             Site
           </Link>
+          <LogoutButton />
         </div>
       </div>
       {children}

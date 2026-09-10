@@ -36,11 +36,11 @@ services:
       AI_PROVIDER: gemini
       AI_MODEL: gemini-2.0-flash
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      UPLOAD_DIR: ./uploads
+      UPLOAD_DIR: ./public/uploads
     depends_on:
       - db
     volumes:
-      - uploads:/app/uploads
+      - uploads:/app/public/uploads
 
 volumes:
   pgdata:

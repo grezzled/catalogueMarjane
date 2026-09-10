@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { unlink } from "fs/promises";
+import { rm } from "fs/promises";
 import path from "path";
 import { processCatalogue } from "@/services/processing";
 import { generateArticleForCatalogue } from "@/services/articles";
+import { revalidateSite } from "@/lib/revalidate";
 
 export async function POST(
   request: NextRequest,
@@ -80,8 +81,9 @@ export async function POST(
         await prisma.offer.deleteMany({ where: { catalogueId: id } });
         await prisma.cataloguePage.deleteMany({ where: { catalogueId: id } });
         await prisma.catalogue.delete({ where: { id } });
-        const uploadDir = path.join(process.cwd(), "uploads", id);
-        await unlink(uploadDir).catch(() => {});
+        const uploadDir = path.join(process.env.UPLOAD_DIR || "./public/uploads", id);
+        await rm(uploadDir, { recursive: true, force: true }).catch(() => {});
+        revalidateSite();
         return NextResponse.json({ success: true, message: "Catalogue removed" });
 
       case "reset":

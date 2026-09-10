@@ -17,10 +17,19 @@ interface Article {
   catalogueId: string | null;
 }
 
+interface GenerationLog {
+  step: string;
+  status: "pending" | "in_progress" | "completed" | "error";
+  message: string;
+  timestamp: string;
+}
+
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [rewriting, setRewriting] = useState<Record<string, boolean>>({});
+  const [logs, setLogs] = useState<GenerationLog[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => {
     fetchArticles();
@@ -52,13 +61,20 @@ export default function ArticlesPage() {
   async function handleRewrite(article: Article) {
     if (!article.catalogueId) return;
     setRewriting((prev) => ({ ...prev, [article.id]: true }));
+    setLogs([]);
+    setShowLogs(true);
     try {
       const res = await fetch(`/api/catalogues/${article.catalogueId}/generate-article`, {
         method: "POST",
       });
+      const data = await res.json();
+      if (data.logs) {
+        setLogs(data.logs);
+      }
       if (res.ok) fetchArticles();
     } catch (err) {
       console.error("Rewrite error:", err);
+      setLogs([{ step: "error", status: "error", message: "Failed to generate article", timestamp: new Date().toISOString() }]);
     } finally {
       setRewriting((prev) => ({ ...prev, [article.id]: false }));
     }
@@ -200,6 +216,82 @@ export default function ArticlesPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {showLogs && logs.length > 0 && (
+          <div className="mt-8 bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Generation Logs</h2>
+              <button
+                onClick={() => setShowLogs(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {logs.map((log, i) => (
+                <div
+                  key={i}
+                  className={`flex items-start gap-3 p-3 rounded-lg ${
+                    log.status === "error"
+                      ? "bg-red-50 border border-red-200"
+                      : log.status === "completed"
+                      ? "bg-green-50 border border-green-200"
+                      : log.status === "in_progress"
+                      ? "bg-blue-50 border border-blue-200"
+                      : "bg-gray-50 border border-gray-200"
+                  }`}
+                >
+                  <div className="shrink-0 mt-0.5">
+                    {log.status === "in_progress" && (
+                      <svg className="h-4 w-4 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    )}
+                    {log.status === "completed" && (
+                      <svg className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                    {log.status === "error" && (
+                      <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                      </svg>
+                    )}
+                    {log.status === "pending" && (
+                      <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 text-sm">{log.step}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        log.status === "error"
+                          ? "bg-red-100 text-red-700"
+                          : log.status === "completed"
+                          ? "bg-green-100 text-green-700"
+                          : log.status === "in_progress"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-700"
+                      }`}>
+                        {log.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-0.5">{log.message}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(log.timestamp).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

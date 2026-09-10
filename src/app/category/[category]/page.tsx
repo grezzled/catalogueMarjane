@@ -7,7 +7,14 @@ import { getCategoryIcon } from "@/lib/category-icons";
 import { ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const categories = await prisma.category.findMany({
+    select: { slug: true },
+  });
+  return categories.map((c) => ({ category: c.slug }));
+}
 
 interface Props {
   params: Promise<{ category: string }>;

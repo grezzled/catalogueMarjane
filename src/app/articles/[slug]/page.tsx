@@ -3,7 +3,15 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const articles = await prisma.article.findMany({
+    where: { status: "PUBLISHED" },
+    select: { slug: true },
+  });
+  return articles.map((a) => ({ slug: a.slug }));
+}
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -39,9 +47,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 function toImageUrl(imagePath: string | null): string | null {
   if (!imagePath) return null;
-  const uploadsIdx = imagePath.indexOf("uploads/");
-  if (uploadsIdx !== -1) {
-    return "/" + imagePath.slice(uploadsIdx);
+  // Handle absolute paths from the server
+  if (imagePath.includes('/public/uploads/')) {
+    const uploadsIdx = imagePath.indexOf('/public/uploads/');
+    return imagePath.slice(uploadsIdx + 7); // Remove /public prefix
+  }
+  if (imagePath.includes('uploads/')) {
+    const uploadsIdx = imagePath.indexOf('uploads/');
+    return '/' + imagePath.slice(uploadsIdx);
   }
   return imagePath;
 }
@@ -58,17 +71,26 @@ function renderContent(content: string): string {
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-gray-900">$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em class="italic">$1</em>');
 
-  // Links
-  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-700 underline">$1</a>');
-
-  // Lists
-  html = html.replace(/^- (.+)$/gm, '<li class="flex gap-2"><span class="text-red-500 mt-1">•</span><span>$1</span></li>');
-
-  // Tables - collect all table rows first
+  // Tables - collect all table rows first (process BEFORE images)
   const tableRows: string[] = [];
   let inTableBlock = false;
   const linesForTable = html.split('\n');
   const processedLines: string[] = [];
+
+  function convertImagePath(src: string): string {
+    if (src.includes('/public/uploads/')) {
+      return src.slice(src.indexOf('/public/uploads/') + 7);
+    }
+    if (src.includes('uploads/')) {
+      return '/' + src.slice(src.indexOf('uploads/'));
+    }
+    return src;
+  }
+
+  function makeTableImage(src: string, alt: string): string {
+    const imageSrc = convertImagePath(src);
+    return `<div class="flex items-center"><img src="${imageSrc}" alt="${alt}" class="w-12 h-12 object-contain rounded" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="w-12 h-12 bg-gray-100 rounded items-center justify-center hidden"><svg class="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg></div></div>`;
+  }
 
   for (const line of linesForTable) {
     if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
@@ -76,22 +98,28 @@ function renderContent(content: string): string {
       tableRows.push(line.trim());
     } else {
       if (inTableBlock && tableRows.length > 0) {
-        // Process collected table rows
         const headerRow = tableRows[0];
-        const dataRows = tableRows.slice(2); // skip header and separator
+        const dataRows = tableRows.slice(2);
 
         const headerCells = headerRow.split('|').filter(c => c.trim()).map(c =>
-          `<th class="px-4 py-3 bg-gray-50 border border-gray-200 text-left font-bold text-gray-900 text-sm">${c.trim()}</th>`
+          `<th class="px-3 py-2 bg-gray-50 border border-gray-200 text-left font-bold text-gray-900 text-xs">${c.trim()}</th>`
         ).join('');
 
         const rowsHtml = dataRows.map(row => {
-          const cells = row.split('|').filter(c => c.trim()).map(c =>
-            `<td class="px-4 py-3 border border-gray-200 text-sm">${c.trim()}</td>`
-          ).join('');
+          const cells = row.split('|').filter(c => c.trim()).map(c => {
+            let cellContent = c.trim();
+            // Convert markdown images to small table images
+            cellContent = cellContent.replace(/!\[(.+?)\]\((.+?)\)/g, (_, alt, src) => makeTableImage(src, alt));
+            // Handle bare image URLs
+            if (cellContent.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+              cellContent = makeTableImage(cellContent, 'Product');
+            }
+            return `<td class="px-3 py-2 border border-gray-200 text-xs">${cellContent}</td>`;
+          }).join('');
           return `<tr class="hover:bg-gray-50">${cells}</tr>`;
         }).join('');
 
-        processedLines.push(`<table class="w-full border-collapse my-6 rounded-lg overflow-hidden shadow-sm"><thead><tr>${headerCells}</tr></thead><tbody>${rowsHtml}</tbody></table>`);
+        processedLines.push(`<div class="overflow-x-auto my-4"><table class="w-full border-collapse rounded-lg overflow-hidden shadow-sm text-xs"><thead><tr>${headerCells}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`);
         tableRows.length = 0;
       }
       inTableBlock = false;
@@ -99,26 +127,41 @@ function renderContent(content: string): string {
     }
   }
 
-  // Handle table at end of content
   if (tableRows.length > 0) {
     const headerRow = tableRows[0];
     const dataRows = tableRows.slice(2);
 
     const headerCells = headerRow.split('|').filter(c => c.trim()).map(c =>
-      `<th class="px-4 py-3 bg-gray-50 border border-gray-200 text-left font-bold text-gray-900 text-sm">${c.trim()}</th>`
+      `<th class="px-3 py-2 bg-gray-50 border border-gray-200 text-left font-bold text-gray-900 text-xs">${c.trim()}</th>`
     ).join('');
 
     const rowsHtml = dataRows.map(row => {
-      const cells = row.split('|').filter(c => c.trim()).map(c =>
-        `<td class="px-4 py-3 border border-gray-200 text-sm">${c.trim()}</td>`
-      ).join('');
+      const cells = row.split('|').filter(c => c.trim()).map(c => {
+        let cellContent = c.trim();
+        cellContent = cellContent.replace(/!\[(.+?)\]\((.+?)\)/g, (_, alt, src) => makeTableImage(src, alt));
+        if (cellContent.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          cellContent = makeTableImage(cellContent, 'Product');
+        }
+        return `<td class="px-3 py-2 border border-gray-200 text-xs">${cellContent}</td>`;
+      }).join('');
       return `<tr class="hover:bg-gray-50">${cells}</tr>`;
     }).join('');
 
-    processedLines.push(`<table class="w-full border-collapse my-6 rounded-lg overflow-hidden shadow-sm"><thead><tr>${headerCells}</tr></thead><tbody>${rowsHtml}</tbody></table>`);
+    processedLines.push(`<div class="overflow-x-auto my-4"><table class="w-full border-collapse rounded-lg overflow-hidden shadow-sm text-xs"><thead><tr>${headerCells}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`);
   }
 
   html = processedLines.join('\n');
+
+  // Images (AFTER tables - only converts images outside tables)
+  html = html.replace(/!\[(.+?)\]\((.+?)\)/g, (match, alt, src) => {
+    const imageSrc = convertImagePath(src);
+    return `<div class="my-4"><img src="${imageSrc}" alt="${alt}" class="w-full h-auto rounded-lg shadow-sm" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="w-full h-24 bg-gray-100 rounded-lg items-center justify-center hidden"><svg class="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg></div></div>`;
+  });
+
+  // Links (AFTER images - so image markdown is not affected)
+  html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-700 underline">$1</a>');
+
+  // Lists
 
   // Paragraphs and line breaks
   const finalLines = html.split('\n');
@@ -287,73 +330,77 @@ export default async function ArticlePage({ params }: Props) {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-10">
-        <article
-          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 md:p-10"
-          dangerouslySetInnerHTML={{ __html: renderedContent }}
-        />
+      <main className="max-w-7xl mx-auto px-4 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <article
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 md:p-10"
+              dangerouslySetInnerHTML={{ __html: renderedContent }}
+            />
+          </div>
 
-        {article.catalogue && (
-          <section className="mt-8 bg-white border border-gray-100 rounded-2xl overflow-hidden">
-            {catalogueImageUrl && (
-              <div className="bg-gray-100 h-48 overflow-hidden">
-                <img
-                  src={catalogueImageUrl}
-                  alt={article.catalogue.title}
-                  className="w-full h-full object-cover"
-                />
+          <aside className="space-y-6">
+            {article.catalogue && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-red-100 rounded-lg p-2">
+                    <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125-1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                  </div>
+                  <h2 className="font-bold text-gray-900">Catalogue associé</h2>
+                </div>
+                {catalogueImageUrl && (
+                  <div className="bg-gray-100 rounded-xl overflow-hidden mb-4">
+                    <img
+                      src={catalogueImageUrl}
+                      alt={article.catalogue.title}
+                      className="w-full h-32 object-cover"
+                    />
+                  </div>
+                )}
+                <Link
+                  href={`/catalogue-marjane/${article.catalogue.slug}`}
+                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
+                >
+                  {article.catalogue.title}
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+                </Link>
               </div>
             )}
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="bg-red-100 rounded-lg p-2">
-                  <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
-                </div>
-                <h2 className="font-bold text-gray-900">Catalogue associé</h2>
-              </div>
-              <Link
-                href={`/catalogue-marjane/${article.catalogue.slug}`}
-                className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
-              >
-                {article.catalogue.title}
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-              </Link>
-            </div>
-          </section>
-        )}
 
-        {relatedArticles.length > 0 && (
-          <section className="mt-10">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="bg-blue-100 rounded-lg p-2">
-                <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6z" /></svg>
+            {relatedArticles.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-blue-100 rounded-lg p-2">
+                    <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6z" /></svg>
+                  </div>
+                  <h2 className="font-bold text-gray-900">Articles connexes</h2>
+                </div>
+                <div className="space-y-4">
+                  {relatedArticles.map((ra) => (
+                    <Link
+                      key={ra.id}
+                      href={`/articles/${ra.slug}`}
+                      className="group block p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                    >
+                      <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-sm leading-snug">
+                        {ra.title}
+                      </h3>
+                      {ra.excerpt && (
+                        <p className="text-xs text-gray-500 mt-2 line-clamp-2">
+                          {ra.excerpt}
+                        </p>
+                      )}
+                      <span className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 font-medium">
+                        Lire
+                        <svg className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
               </div>
-              <h2 className="text-xl font-bold text-gray-900">Articles connexes</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {relatedArticles.map((ra) => (
-                <Link
-                  key={ra.id}
-                  href={`/articles/${ra.slug}`}
-                  className="group bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md transition-all"
-                >
-                  <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors leading-snug">
-                    {ra.title}
-                  </h3>
-                  {ra.excerpt && (
-                    <p className="text-sm text-gray-500 mt-2 line-clamp-2">
-                      {ra.excerpt}
-                    </p>
-                  )}
-                  <span className="inline-flex items-center gap-1 mt-3 text-xs text-blue-600 font-medium">
-                    Lire
-                    <svg className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+            )}
+          </aside>
+        </div>
       </main>
     </div>
   );

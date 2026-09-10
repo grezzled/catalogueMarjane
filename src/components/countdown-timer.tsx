@@ -21,7 +21,7 @@ function Block({ value, label }: { value: number; label: string }) {
       <div className="bg-white/15 backdrop-blur-sm rounded-lg w-full h-8 sm:h-10 flex items-center justify-center">
         <span className="text-base sm:text-lg font-extrabold tabular-nums">{String(value).padStart(2, "0")}</span>
       </div>
-      <span className="text-red-200 text-[8px] sm:text-[9px] mt-1 font-medium uppercase tracking-wider">{label}</span>
+      <span className="text-blue-200 text-[8px] sm:text-[9px] mt-1 font-medium uppercase tracking-wider">{label}</span>
     </div>
   );
 }
@@ -39,7 +39,7 @@ export default function CountdownTimer({ endDate }: { endDate: string }) {
       <div className="flex flex-col items-center gap-2">
         <div className="flex items-center gap-1.5">
           <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-300" />
-          <span className="text-xs sm:text-sm font-medium text-red-100">Terminé</span>
+          <span className="text-xs sm:text-sm font-medium text-blue-100">Terminé</span>
         </div>
       </div>
     );

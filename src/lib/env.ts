@@ -14,6 +14,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_NAME: z.string().default("Catalogue Marjane"),
   MAX_UPLOAD_SIZE_MB: z.coerce.number().default(50),
   UPLOAD_DIR: z.string().default("./uploads"),
+  UPLOAD_DIR_ORIGINAL: z.string().default("./uploads-original"),
   DATA_DIR: z.string().default("./data"),
 });
 

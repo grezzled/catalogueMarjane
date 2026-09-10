@@ -5,10 +5,18 @@ import { formatDateRange } from "@/lib/utils";
 import CountdownTimer from "@/components/countdown-timer";
 import CatalogueProductSection from "@/components/catalogue-products";
 import CatalogueSidebar from "@/components/catalogue-sidebar";
+import TopOffersSection from "@/components/top-offers-section";
 import { FileText, Package, Tag, Calendar, Clock, AlertCircle, CheckCircle2, ChevronRight, BookOpen } from "lucide-react";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const catalogues = await prisma.catalogue.findMany({
+    select: { slug: true },
+  });
+  return catalogues.map((c) => ({ slug: c.slug }));
+}
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -57,7 +65,7 @@ export default async function CatalogueDetailPage({ params }: Props) {
         include: {
           product: true,
           cataloguePage: {
-            select: { pageNumber: true },
+            select: { pageNumber: true, imagePath: true },
           },
         },
         orderBy: { discountPercentage: "desc" },
@@ -135,9 +143,9 @@ export default async function CatalogueDetailPage({ params }: Props) {
   function StatCard({ value, label, icon }: { value: number; label: string; icon: React.ReactNode }) {
     return (
       <div className="bg-white/15 backdrop-blur-sm rounded-xl p-4 text-center">
-        <div className="flex items-center justify-center gap-2 mb-2 text-red-100">{icon}</div>
+        <div className="flex items-center justify-center gap-2 mb-2 text-blue-100">{icon}</div>
         <p className="text-2xl font-extrabold tabular-nums">{value.toLocaleString()}</p>
-        <p className="text-red-200 text-xs font-medium">{label}</p>
+        <p className="text-blue-200 text-xs font-medium">{label}</p>
       </div>
     );
   }
@@ -153,9 +161,9 @@ export default async function CatalogueDetailPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <header className="bg-gradient-to-br from-red-600 via-red-600 to-orange-500 text-white">
+      <header className="bg-gradient-to-br from-blue-600 via-blue-600 to-blue-500 text-white">
         <div className="max-w-7xl mx-auto px-4 py-8 sm:py-10">
-          <nav className="text-xs sm:text-sm text-red-200/80 mb-4 sm:mb-6 flex items-center gap-1.5">
+          <nav className="text-xs sm:text-sm text-blue-200/80 mb-4 sm:mb-6 flex items-center gap-1.5">
             <Link href="/" className="hover:text-white transition-colors">Accueil</Link>
             <ChevronRight className="h-3 w-3" />
             <Link href="/catalogue-marjane" className="hover:text-white transition-colors">Catalogues</Link>
@@ -166,7 +174,7 @@ export default async function CatalogueDetailPage({ params }: Props) {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6">
             <div className="min-w-0">
               <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">{catalogue.title}</h1>
-              <p className="text-red-100 text-sm sm:text-lg flex items-center gap-2 mt-1">
+              <p className="text-blue-100 text-sm sm:text-lg flex items-center gap-2 mt-1">
                 <Calendar className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
                 {formatDateRange(catalogue.startDate, catalogue.endDate)}
               </p>
@@ -188,7 +196,7 @@ export default async function CatalogueDetailPage({ params }: Props) {
           </div>
           <Link 
             href={`/catalogue-marjane/${catalogue.slug}/page/1`}
-            className="mt-5 sm:mt-6 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-red-600 font-bold text-sm px-6 py-3 rounded-xl hover:bg-white/90 transition-colors"
+            className="mt-5 sm:mt-6 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-blue-600 font-bold text-sm px-6 py-3 rounded-xl hover:bg-white/90 transition-colors"
           >
             <BookOpen className="h-4 w-4" />
             Parcourir le catalogue
@@ -199,131 +207,7 @@ export default async function CatalogueDetailPage({ params }: Props) {
       <main className="max-w-7xl mx-auto px-4 py-10">
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="flex-1 min-w-0">
-            {topOffers.length > 0 && (
-          <section className="mb-14">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="bg-gradient-to-br from-red-500 to-orange-500 rounded-xl p-2.5 shadow-lg shadow-red-200">
-                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" /></svg>
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Meilleures offres</h2>
-                <p className="text-sm text-gray-500">Les deals les plus hot du moment</p>
-              </div>
-            </div>
-
-            {topOffers[0] && (
-              <div className="bg-gradient-to-br from-red-600 via-red-500 to-orange-400 rounded-xl p-5 mb-4 text-white">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    TOP DEAL
-                  </span>
-                  <span className="text-white/60 text-xs">{topOffers[0].product.category}</span>
-                </div>
-                <div className="flex items-center gap-5">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-extrabold leading-tight truncate">{topOffers[0].product.name}</h3>
-                    <div className="flex items-center gap-3 mt-2">
-                      {topOffers[0].originalPrice && (
-                        <span className="text-white/50 line-through text-sm">
-                          {topOffers[0].originalPrice.toLocaleString()} DH
-                        </span>
-                      )}
-                      {topOffers[0].salePrice && (
-                        <span className="text-white font-extrabold text-3xl">
-                          {topOffers[0].salePrice.toLocaleString()} <span className="text-sm">DH</span>
-                        </span>
-                      )}
-                      {topOffers[0].discountPercentage && (
-                        <span className="bg-white text-red-600 text-xs font-extrabold px-2 py-0.5 rounded-full">
-                          -{Math.round(topOffers[0].discountPercentage)}%
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="w-24 h-24 bg-white/20 rounded-xl flex items-center justify-center">
-                      {topOffers[0].product.imageUrl && toImageUrl(topOffers[0].product.imageUrl) ? (
-                        <img
-                          src={toImageUrl(topOffers[0].product.imageUrl)!}
-                          alt={topOffers[0].product.name}
-                          className="w-full h-full object-contain p-1"
-                        />
-                      ) : (
-                        <Package className="h-10 w-10 text-white/40" />
-                      )}
-                    </div>
-                    {topOffers[0].cataloguePage?.pageNumber && (
-                      <Link
-                        href={`/catalogue-marjane/${catalogue.slug}/page/${topOffers[0].cataloguePage.pageNumber}`}
-                        className="bg-white text-red-600 font-bold text-xs px-4 py-2.5 rounded-lg hover:bg-white/90 transition-colors"
-                      >
-                        Page {topOffers[0].cataloguePage.pageNumber}
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {topOffers.slice(1, 7).map((offer) => (
-                <div
-                  key={offer.id}
-                  className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-all"
-                >
-                  <div className="flex items-center gap-4 p-4">
-                    <div className="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center shrink-0">
-                      {offer.product.imageUrl && toImageUrl(offer.product.imageUrl) ? (
-                        <img
-                          src={toImageUrl(offer.product.imageUrl)!}
-                          alt={offer.product.name}
-                          className="w-full h-full object-contain p-1"
-                        />
-                      ) : (
-                        <Package className="h-8 w-8 text-gray-300" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">
-                          {offer.product.category}
-                        </span>
-                        {offer.discountPercentage && (
-                          <span className="text-[10px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded">
-                            -{Math.round(offer.discountPercentage)}%
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 mb-2">
-                        {offer.product.name}
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        {offer.salePrice && (
-                          <span className="text-red-600 font-bold text-lg">
-                            {offer.salePrice.toLocaleString()} <span className="text-xs">DH</span>
-                          </span>
-                        )}
-                        {offer.originalPrice && offer.originalPrice > (offer.salePrice ?? 0) && (
-                          <span className="text-gray-400 line-through text-xs">
-                            {offer.originalPrice.toLocaleString()} DH
-                          </span>
-                        )}
-                      </div>
-                      {offer.cataloguePage?.pageNumber && (
-                        <Link
-                          href={`/catalogue-marjane/${catalogue.slug}/page/${offer.cataloguePage.pageNumber}`}
-                          className="inline-block mt-2 text-[10px] text-gray-500 hover:text-red-600 font-medium"
-                        >
-                          Page {offer.cataloguePage.pageNumber}
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+            <TopOffersSection topOffers={topOffers} catalogueSlug={catalogue.slug} catalogueTitle={catalogue.title} />
 
         <section className="mb-14">
           <div className="flex items-center gap-3 mb-6">
@@ -337,7 +221,7 @@ export default async function CatalogueDetailPage({ params }: Props) {
               <Link
                 key={page.id}
                 href={`/catalogue-marjane/${catalogue.slug}/page/${page.pageNumber}`}
-                className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-red-300 hover:shadow-md transition-all"
+                className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-blue-300 hover:shadow-md transition-all"
               >
                 {page.imagePath && toImageUrl(page.imagePath) ? (
                   <div className="relative">
@@ -351,8 +235,8 @@ export default async function CatalogueDetailPage({ params }: Props) {
                     </span>
                   </div>
                 ) : (
-                  <div className="w-10 h-10 bg-gray-100 group-hover:bg-red-50 rounded-full flex items-center justify-center mx-auto mt-4 mb-2 transition-colors">
-                    <span className="font-bold text-gray-600 group-hover:text-red-600 text-sm transition-colors">{page.pageNumber}</span>
+                  <div className="w-10 h-10 bg-gray-100 group-hover:bg-blue-50 rounded-full flex items-center justify-center mx-auto mt-4 mb-2 transition-colors">
+                    <span className="font-bold text-gray-600 group-hover:text-blue-600 text-sm transition-colors">{page.pageNumber}</span>
                   </div>
                 )}
                 <div className="p-3 text-center">
@@ -371,6 +255,7 @@ export default async function CatalogueDetailPage({ params }: Props) {
         <CatalogueProductSection
           offers={JSON.parse(JSON.stringify(catalogue.offers))}
           catalogueSlug={catalogue.slug}
+          catalogueTitle={catalogue.title}
         />
 
         <section className="bg-white border border-gray-200 rounded-2xl p-8">

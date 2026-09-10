@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
-export const dynamic = "force-dynamic";
+export async function generateStaticParams() {
+  const categories = await prisma.category.findMany({
+    select: { slug: true },
+  });
+  return categories.map((c) => ({ category: c.slug }));
+}
 
 interface Props {
   params: Promise<{ category: string }>;
