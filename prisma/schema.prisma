@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Catalogue {
+  id            String   @id @default(uuid())
+  title         String
+  slug          String   @unique
+  description   String?
+  type          String   @default("weekly")
+  language      String   @default("fr")
+  startDate     DateTime
+  endDate       DateTime
+  status        String   @default("UPLOADED")
+  paused        Boolean  @default(false)
+  pdfPath       String?
+  pdfHash       String?  @unique
+  sourceUrl     String?
+  pageCount     Int      @default(0)
+  processedPages Int     @default(0)
+  productCount  Int      @default(0)
+  offerCount    Int      @default(0)
+  articleCount  Int      @default(0)
+  aiProcessingProgress Float @default(0)
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  pages         CataloguePage[]
+  offers        Offer[]
+  articles      Article[]
+  aiJobs        AIJob[]
+
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([slug])
+}
+
+model CataloguePage {
+  id              String   @id @default(uuid())
+  catalogueId     String
+  pageNumber      Int
+  imagePath       String?
+  extractedText   String?
+  aiAnalysis      String?
+  pageType        String?
+  category        String?
+  productCount    Int      @default(0)
+  status          String   @default("PENDING")
+  aiModel         String?
+  confidence      Float?
+  processedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  catalogue       Catalogue @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
+  offers          Offer[]
+
+  @@unique([catalogueId, pageNumber])
+  @@index([catalogueId])
+  @@index([status])
+}
+
+model Product {
+  id              String   @id @default(uuid())
+  name            String
+  normalizedName  String
+  brand           String?
+  category        String
+  subcategory     String?
+  specifications  String?
+  imageUrl        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  offers          Offer[]
+  articleProducts ArticleProduct[]
+
+  @@index([normalizedName])
+  @@index([category])
+  @@index([brand])
+}
+
+model Offer {
+  id                  String   @id @default(uuid())
+  productId           String
+  catalogueId         String
+  cataloguePageId     String
+  originalPrice       Float?
+  salePrice           Float?
+  currency            String   @default("MAD")
+  discountAmount      Float?
+  discountPercentage  Float?
+  installmentAmount   Float?
+  installmentMonths   Int?
+  availability        String?
+  conditions          String?
+  promotionalDates    String?
+  confidence          Float?
+  startDate           DateTime
+  endDate             DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  product             Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  catalogue           Catalogue    @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
+  cataloguePage       CataloguePage @relation(fields: [cataloguePageId], references: [id], onDelete: Cascade)
+
+  @@index([catalogueId])
+  @@index([productId])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  parentId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  articles    ArticleCategory[]
+
+  @@index([slug])
+}
+
+model Article {
+  id                  String   @id @default(uuid())
+  title               String
+  slug                String   @unique
+  metaTitle           String?
+  metaDescription     String?
+  excerpt             String?
+  content             String
+  contentHtml         String?
+  primaryKeyword      String?
+  secondaryKeywords   String?
+  searchIntent        String?
+  catalogueId         String?
+  status              String   @default("DRAFT")
+  seoScore            Float?
+  contentQualityScore Float?
+  originalityScore    Float?
+  factualAccuracyScore Float?
+  searchIntentScore   Float?
+  thinContentRisk     Float?
+  keywordStuffingRisk Float?
+  recommendation      String?
+  publishedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  catalogue           Catalogue?          @relation(fields: [catalogueId], references: [id], onDelete: SetNull)
+  articleProducts     ArticleProduct[]
+  articleCategories   ArticleCategory[]
+  outgoingLinks       ArticleLink[]       @relation("ArticleLinks")
+  incomingLinks       ArticleLink[]       @relation("LinkedArticles")
+  seoAnalysis         SEOAnalysis?
+
+  @@index([slug])
+  @@index([status])
+  @@index([catalogueId])
+  @@index([primaryKeyword])
+}
+
+model ArticleProduct {
+  id        String  @id @default(uuid())
+  articleId String
+  productId String
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, productId])
+  @@index([articleId])
+  @@index([productId])
+}
+
+model ArticleCategory {
+  id         String   @id @default(uuid())
+  articleId  String
+  categoryId String
+  article    Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, categoryId])
+  @@index([articleId])
+  @@index([categoryId])
+}
+
+model ArticleLink {
+  id              String  @id @default(uuid())
+  sourceArticleId String
+  targetArticleId String
+  anchorText      String?
+  sourceArticle   Article @relation("ArticleLinks", fields: [sourceArticleId], references: [id], onDelete: Cascade)
+  targetArticle   Article @relation("LinkedArticles", fields: [targetArticleId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceArticleId, targetArticleId])
+  @@index([sourceArticleId])
+  @@index([targetArticleId])
+}
+
+model AIJob {
+  id           String   @id @default(uuid())
+  type         String
+  catalogueId  String?
+  pageId       String?
+  articleId    String?
+  status       String   @default("PENDING")
+  priority     Int      @default(0)
+  payload      String?
+  result       String?
+  errorMessage String?
+  retryCount   Int      @default(0)
+  maxRetries   Int      @default(3)
+  nextRetryAt  DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  catalogue    Catalogue? @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
+
+  @@index([status, type])
+  @@index([catalogueId])
+  @@index([status, priority])
+}
+
+model SEOAnalysis {
+  id        String   @id @default(uuid())
+  articleId String   @unique
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  analysis  String
+  score     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([articleId])
+}
+
+model Source {
+  id          String   @id @default(uuid())
+  name        String
+  url         String?  @unique
+  type        String?
+  lastChecked DateTime?
+  isActive    Boolean  @default(true)
+  config      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([url])
+  @@index([isActive])
+}
