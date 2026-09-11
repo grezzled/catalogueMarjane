@@ -40,6 +40,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: `Catalogue Marjane ${formatDateRange(catalogue.startDate, catalogue.endDate)}`,
       description: `Promotions et offres Marjane du ${formatDateRange(catalogue.startDate, catalogue.endDate)}`,
       type: "website",
+      url: `/catalogue-marjane/${catalogue.slug}`,
+      siteName: "Catalogue Marjane",
+      images: [
+        {
+          url: "/opengraph-image",
+          width: 1200,
+          height: 630,
+          alt: `Catalogue Marjane ${formatDateRange(catalogue.startDate, catalogue.endDate)}`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `Catalogue Marjane ${formatDateRange(catalogue.startDate, catalogue.endDate)}`,
+      description: `Promotions et offres Marjane du ${formatDateRange(catalogue.startDate, catalogue.endDate)}`,
+      images: ["/opengraph-image"],
     },
   };
 }

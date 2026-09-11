@@ -9,6 +9,27 @@ export const metadata = {
   title: "Catalogue Marjane - Promotions et Offres au Maroc",
   description:
     "Découvrez le catalogue Marjane : promotions, offres et bons plans sur l'électroménager, l'alimentation, la maison et plus au Maroc.",
+  openGraph: {
+    title: "Catalogue Marjane - Promotions et Offres au Maroc",
+    description: "Découvrez le catalogue Marjane : promotions, offres et bons plans sur l'électroménager, l'alimentation, la maison et plus au Maroc.",
+    type: "website",
+    url: "/",
+    siteName: "Catalogue Marjane",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Catalogue Marjane - Promotions et Offres",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Catalogue Marjane - Promotions et Offres au Maroc",
+    description: "Découvrez le catalogue Marjane : promotions, offres et bons plans sur l'électroménager, l'alimentation, la maison et plus au Maroc.",
+    images: ["/opengraph-image"],
+  },
 };
 
 export default async function HomePage() {

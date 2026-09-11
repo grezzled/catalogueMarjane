@@ -10,6 +10,27 @@ export const metadata = {
   title: "Promotions Marjane - Offres et bons plans au Maroc",
   description:
     "Toutes les promotions Marjane en cours : électroménager, alimentation, high-tech, maison et plus encore au Maroc.",
+  openGraph: {
+    title: "Promotions Marjane - Offres et bons plans au Maroc",
+    description: "Toutes les promotions Marjane en cours : électroménager, alimentation, high-tech, maison et plus encore au Maroc.",
+    type: "website",
+    url: "/promotions-marjane",
+    siteName: "Catalogue Marjane",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Promotions Marjane",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Promotions Marjane - Offres et bons plans au Maroc",
+    description: "Toutes les promotions Marjane en cours : électroménager, alimentation, high-tech, maison et plus encore au Maroc.",
+    images: ["/opengraph-image"],
+  },
 };
 
 interface Props {

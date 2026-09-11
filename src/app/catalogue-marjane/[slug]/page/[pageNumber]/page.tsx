@@ -57,7 +57,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title,
     description,
     alternates: { canonical: `/catalogue-marjane/${slug}/page/${pageNumber}` },
-    openGraph: { title, description, type: "website" },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: `/catalogue-marjane/${slug}/page/${pageNumber}`,
+      siteName: "Catalogue Marjane",
+      images: [
+        {
+          url: "/opengraph-image",
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/opengraph-image"],
+    },
   };
 }
 

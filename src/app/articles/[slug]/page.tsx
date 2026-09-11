@@ -41,6 +41,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: article.metaTitle || article.title,
       description: article.metaDescription || undefined,
       type: "article",
+      url: `/articles/${article.slug}`,
+      siteName: "Catalogue Marjane",
+      images: [
+        {
+          url: "/opengraph-image",
+          width: 1200,
+          height: 630,
+          alt: article.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: article.metaTitle || article.title,
+      description: article.metaDescription || undefined,
+      images: ["/opengraph-image"],
     },
   };
 }

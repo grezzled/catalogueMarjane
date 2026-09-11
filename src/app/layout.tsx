@@ -3,14 +3,34 @@ import Link from "next/link";
 import Navbar from "@/components/navbar";
 
 export const metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://cataloguemarjane.com"),
   title: {
     template: "%s | Catalogue Marjane",
     default: "Catalogue Marjane - Promotions et Offres au Maroc",
   },
   description:
     "Découvrez les catalogues Marjane avec toutes les promotions, offres et bons plans au Maroc.",
-  icons: {
-    icon: "/favicon.svg",
+  openGraph: {
+    title: "Catalogue Marjane - Promotions et Offres au Maroc",
+    description: "Découvrez les promotions Marjane : électroménager, alimentation, high-tech, maison et plus au Maroc.",
+    url: "/",
+    siteName: "Catalogue Marjane",
+    locale: "fr_MA",
+    type: "website",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Catalogue Marjane - Promotions et Offres",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Catalogue Marjane - Promotions et Offres au Maroc",
+    description: "Découvrez les promotions Marjane : électroménager, alimentation, high-tech, maison et plus au Maroc.",
+    images: ["/opengraph-image"],
   },
 };
 

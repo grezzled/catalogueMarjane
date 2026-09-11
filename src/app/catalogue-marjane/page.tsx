@@ -8,6 +8,27 @@ export const metadata = {
   title: "Catalogues Marjane - Tous les catalogues",
   description:
     "Tous les catalogues Marjane : catalogues en cours, archive et prochaines promotions au Maroc.",
+  openGraph: {
+    title: "Catalogues Marjane - Tous les catalogues",
+    description: "Tous les catalogues Marjane : catalogues en cours, archive et prochaines promotions au Maroc.",
+    type: "website",
+    url: "/catalogue-marjane",
+    siteName: "Catalogue Marjane",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Catalogues Marjane",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Catalogues Marjane - Tous les catalogues",
+    description: "Tous les catalogues Marjane : catalogues en cours, archive et prochaines promotions au Maroc.",
+    images: ["/opengraph-image"],
+  },
 };
 
 export default async function CataloguesListPage() {

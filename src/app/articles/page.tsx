@@ -7,6 +7,27 @@ export const metadata = {
   title: "Articles et conseils Marjane - Promotions et bons plans",
   description:
     "Articles et conseils sur les promotions Marjane : meilleures offres, guides d'achat et bons plans au Maroc.",
+  openGraph: {
+    title: "Articles et conseils Marjane - Promotions et bons plans",
+    description: "Articles et conseils sur les promotions Marjane : meilleures offres, guides d'achat et bons plans au Maroc.",
+    type: "website",
+    url: "/articles",
+    siteName: "Catalogue Marjane",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Articles Marjane",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Articles et conseils Marjane - Promotions et bons plans",
+    description: "Articles et conseils sur les promotions Marjane : meilleures offres, guides d'achat et bons plans au Maroc.",
+    images: ["/opengraph-image"],
+  },
 };
 
 export default async function ArticlesListPage() {

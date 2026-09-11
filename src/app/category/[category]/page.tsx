@@ -30,6 +30,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${cat.name} - Toutes les offres Marjane`,
     description: `Découvrez tous les produits et offres Marjane dans la catégorie ${cat.name}.`,
     alternates: { canonical: `/category/${category}` },
+    openGraph: {
+      title: `${cat.name} - Toutes les offres Marjane`,
+      description: `Découvrez tous les produits et offres Marjane dans la catégorie ${cat.name}.`,
+      type: "website",
+      url: `/category/${category}`,
+      siteName: "Catalogue Marjane",
+      images: [
+        {
+          url: "/opengraph-image",
+          width: 1200,
+          height: 630,
+          alt: `${cat.name} - Offres Marjane`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${cat.name} - Toutes les offres Marjane`,
+      description: `Découvrez tous les produits et offres Marjane dans la catégorie ${cat.name}.`,
+      images: ["/opengraph-image"],
+    },
   };
 }
 
