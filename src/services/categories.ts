@@ -1,5 +1,10 @@
 import type { ProductData } from "@/types";
 import prisma from "@/lib/prisma";
+import { buildIdentity, matchIdentity, normalizeProductName } from "@/services/product-identity";
+
+// Single source of truth lives in product-identity.ts; re-exported here so
+// existing imports (`@/services/categories`) keep working.
+export { normalizeProductName };
 
 const CATEGORY_MAP: Record<string, string[]> = {
   Alimentation: [
@@ -220,16 +225,6 @@ export async function ensureCategoriesExist(categoryNames: string[]): Promise<vo
   }
 }
 
-export function normalizeProductName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 export function normalizeBrand(brand: string | null): string | null {
   if (!brand) return null;
   return brand
@@ -286,15 +281,44 @@ export function mergeProducts(
   incoming: ProductData[]
 ): ProductData[] {
   const merged = [...existing];
+  const identities = merged.map((p) =>
+    buildIdentity({
+      name: p.name,
+      brand: p.brand,
+      aiModelNumber: p.modelNumber,
+      specs: p.features,
+    })
+  );
 
   for (const product of incoming) {
-    const normalizedName = normalizeProductName(product.name);
-    const existingIndex = merged.findIndex(
-      (p) => normalizeProductName(p.name) === normalizedName
-    );
+    const identity = buildIdentity({
+      name: product.name,
+      brand: product.brand,
+      aiModelNumber: product.modelNumber,
+      specs: product.features,
+    });
+    const existingIndex = identities.findIndex((id, i) => {
+      if (
+        matchIdentity(identity, {
+          brand: merged[i].brand ?? null,
+          modelNumber: id.modelNumber,
+          size: id.size,
+          sizeNum: id.sizeNum,
+          variant: id.variant,
+          identityKey: id.identityKey,
+          coreName: id.coreName,
+          normalizedName: normalizeProductName(merged[i].name),
+          name: merged[i].name,
+        })
+      ) {
+        return true;
+      }
+      return normalizeProductName(merged[i].name) === normalizeProductName(product.name);
+    });
 
     if (existingIndex === -1) {
       merged.push(product);
+      identities.push(identity);
     }
   }
 

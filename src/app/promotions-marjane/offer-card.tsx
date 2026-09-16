@@ -68,7 +68,7 @@ export default function OfferCard({ offer }: { offer: OfferData }) {
       catalogueTitle={offer.catalogue.title}
       showFeatures
     >
-      <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+      <div className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ${!isActive ? "opacity-90" : ""}`}>
         <div className="flex items-center justify-between mb-2">
           <div className="w-full h-32 bg-gray-50 rounded-lg flex items-center justify-center">
             {offer.product.imageUrl && toImageUrl(offer.product.imageUrl) ? (
@@ -92,8 +92,8 @@ export default function OfferCard({ offer }: { offer: OfferData }) {
               En cours
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-500 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-              Terminé
+            <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-500 text-[10px] font-bold px-1.5 py-0.5 rounded-full" title="Offre expirée — prix indicatif, non disponible">
+              Expiré · prix indicatif
             </span>
           )}
         </div>

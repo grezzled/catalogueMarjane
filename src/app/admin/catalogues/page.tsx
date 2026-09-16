@@ -6,6 +6,8 @@ import Link from "next/link";
 interface Catalogue {
   id: string;
   title: string;
+  description: string | null;
+  sourceUrl: string | null;
   store: string;
   slug: string;
   type: string;
@@ -43,6 +45,7 @@ export default function CataloguesPage() {
   const [catalogues, setCatalogues] = useState<Catalogue[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pageProgress, setPageProgress] = useState<Record<string, CataloguePage[]>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,11 +60,27 @@ export default function CataloguesPage() {
     language: "fr",
   });
   const [processing, setProcessing] = useState<Record<string, boolean>>({});
+  const [jobLog, setJobLog] = useState<Record<string, string>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ title: "", store: "marjane", type: "weekly", startDate: "", endDate: "", sourceUrl: "" });
+  const [editForm, setEditForm] = useState({ title: "", description: "", store: "marjane", type: "weekly", status: "UPLOADED", startDate: "", endDate: "", sourceUrl: "" });
   const [saving, setSaving] = useState(false);
+  const [statusSaving, setStatusSaving] = useState<Record<string, boolean>>({});
   const pollIntervals = useRef<Record<string, NodeJS.Timeout>>({});
+
+  const CATALOGUE_STATUSES = [
+    "UPLOADED",
+    "PROCESSING",
+    "EXTRACTING",
+    "ANALYZING",
+    "STRUCTURING",
+    "GENERATING",
+    "REVIEW",
+    "PUBLISHED",
+    "FAILED",
+    "ARCHIVED",
+    "CANCELLED",
+  ];
 
   const addToast = useCallback((message: string, type: Toast["type"] = "info") => {
     const id = ++toastId;
@@ -134,6 +153,7 @@ export default function CataloguesPage() {
       addToast("Catalogue uploaded successfully", "success");
       setFormData({ title: "", store: "marjane", type: "weekly", startDate: "", endDate: "", description: "", sourceUrl: "", language: "fr" });
       if (fileInputRef.current) fileInputRef.current.value = "";
+      setUploadOpen(false);
       fetchCatalogues();
     } catch (err) {
       console.error("Upload error:", err);
@@ -143,21 +163,119 @@ export default function CataloguesPage() {
     }
   }
 
+  async function revalidate(scope: "site" | "catalogue" | "article", slug?: string) {
+    try {
+      await fetch("/api/revalidate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          scope !== "site" && slug ? { scope, slug } : { scope: "site" }
+        ),
+      });
+    } catch (err) {
+      console.error("Revalidate error:", err);
+    }
+  }
+
+  async function pollJob(catalogueId: string, jobId: string, kind: "article" | "processing") {
+    const maxAttempts = kind === "article" ? 200 : 400; // ~10 min / ~20 min at 3s intervals
+    const label = kind === "article" ? "Article generation" : "Processing";
+    const lastStep = (job: {
+      status: string;
+      retryCount?: number;
+      error?: string | null;
+      result?: { articleId?: string; logs?: Array<{ step: string; status: string; message: string }> } | null;
+    }) => {
+      const logs = job.result?.logs;
+      if (logs && logs.length > 0) {
+        const last = logs[logs.length - 1];
+        setJobLog((prev) => ({
+          ...prev,
+          [catalogueId]: `[${last.status}] ${last.step}: ${last.message}`.slice(0, 160),
+        }));
+      } else {
+        const phase =
+          job.status === "PROCESSING" ? "processing" :
+          job.status === "RETRYING" ? `retrying (${job.retryCount ?? 0})` :
+          "queued";
+        setJobLog((prev) => ({ ...prev, [catalogueId]: `Job ${phase}...` }));
+      }
+    };
+    const clearJob = () => {
+      setProcessing((prev) => ({ ...prev, [catalogueId]: false }));
+      setJobLog((prev) => {
+        const next = { ...prev };
+        delete next[catalogueId];
+        return next;
+      });
+    };
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) continue;
+        const job = await res.json();
+        lastStep(job);
+        if (job.status === "COMPLETED") {
+          if (kind === "article") {
+            const articleId = job.result?.articleId;
+            addToast(
+              articleId ? `Article generated — ${articleId}` : "Article generated",
+              "success"
+            );
+            // New articles land in APPROVED (not public) — nothing to revalidate.
+          } else {
+            const r = job.result ?? {};
+            const bits = [
+              r.processedPages != null ? `${r.processedPages} pages` : null,
+              r.productCount != null ? `${r.productCount} products` : null,
+              r.offerCount != null ? `${r.offerCount} offers` : null,
+            ].filter(Boolean);
+            addToast(
+              bits.length > 0 ? `Processing complete — ${bits.join(", ")}` : "Processing complete",
+              "success"
+            );
+            // Content changed under a public URL — refresh it now (ISR backstop: 600s).
+            const slug = catalogues.find((c) => c.id === catalogueId)?.slug;
+            revalidate("catalogue", slug);
+          }
+          fetchCatalogues();
+          clearJob();
+          return;
+        }
+        if (job.status === "FAILED") {
+          addToast(
+            `${label} failed${job.retryCount ? ` after ${job.retryCount} retries` : ""}: ${job.error || "unknown error"}`,
+            "error"
+          );
+          fetchCatalogues();
+          clearJob();
+          return;
+        }
+        // PENDING / RETRYING / PROCESSING → keep polling
+      } catch (err) {
+        console.error("Job poll error:", err);
+      }
+    }
+    addToast(`${label} is still running in the background`, "info");
+    clearJob();
+  }
+
   async function handleAction(id: string, action: string) {
     if (processing[id]) return;
     setProcessing((prev) => ({ ...prev, [id]: true }));
+    // When true, the finally block leaves the button busy (a background poll owns it).
+    let keepBusy = false;
 
     const labels: Record<string, string> = {
       extract: "Extracting pages",
       analyze: "Starting AI analysis",
-      generate: "Generating article",
     };
     addToast(labels[action] || "Processing...", "info");
 
     const endpoints: Record<string, string> = {
       extract: `/api/catalogues/${id}/control`,
       analyze: `/api/catalogues/${id}/control`,
-      generate: `/api/catalogues/${id}/generate-article`,
     };
 
     const bodies: Record<string, string> = {
@@ -172,8 +290,21 @@ export default function CataloguesPage() {
         body: bodies[action],
       });
       if (res.ok) {
+        const data = await res.json().catch(() => null);
         fetchCatalogues();
         if (action === "analyze") startPolling(id);
+        if ((action === "extract" || action === "analyze") && data?.jobId) {
+          addToast(
+            data.queued === false
+              ? "Processing already in progress — watching it"
+              : "Processing queued — worker will pick it up",
+            "success"
+          );
+          if (action === "analyze") startPolling(id);
+          keepBusy = true;
+          pollJob(id, data.jobId, "processing");
+          return;
+        }
         addToast(`${labels[action]} started`, "success");
       } else {
         const err = await res.json();
@@ -183,7 +314,7 @@ export default function CataloguesPage() {
       console.error("Process error:", err);
       addToast("Action failed", "error");
     } finally {
-      setProcessing((prev) => ({ ...prev, [id]: false }));
+      if (!keepBusy) setProcessing((prev) => ({ ...prev, [id]: false }));
     }
   }
 
@@ -191,6 +322,8 @@ export default function CataloguesPage() {
     if (confirmMsg && !window.confirm(confirmMsg)) return;
     if (processing[id]) return;
     setProcessing((prev) => ({ ...prev, [id]: true }));
+    // When true, the finally block leaves the button busy (a background poll owns it).
+    let keepBusy = false;
 
     const labels: Record<string, string> = {
       pause: "Pausing",
@@ -209,7 +342,19 @@ export default function CataloguesPage() {
         body: JSON.stringify({ action }),
       });
       if (res.ok) {
+        const data = await res.json().catch(() => null);
         fetchCatalogues();
+        if (data?.jobId && (action === "resume" || action === "reset")) {
+          addToast(
+            data.queued === false
+              ? "Processing already in progress — watching it"
+              : "Processing queued — worker will pick it up",
+            "success"
+          );
+          keepBusy = true;
+          pollJob(id, data.jobId, "processing");
+          return;
+        }
         addToast(`${labels[action]} complete`, "success");
       } else {
         const err = await res.json();
@@ -219,7 +364,7 @@ export default function CataloguesPage() {
       console.error("Control error:", err);
       addToast("Action failed", "error");
     } finally {
-      setProcessing((prev) => ({ ...prev, [id]: false }));
+      if (!keepBusy) setProcessing((prev) => ({ ...prev, [id]: false }));
     }
   }
 
@@ -250,12 +395,36 @@ export default function CataloguesPage() {
     setEditId(c.id);
     setEditForm({
       title: c.title,
+      description: c.description ?? "",
       store: c.store || "marjane",
       type: c.type,
+      status: c.status,
       startDate: c.startDate.slice(0, 10),
       endDate: c.endDate.slice(0, 10),
-      sourceUrl: "",
+      sourceUrl: c.sourceUrl ?? "",
     });
+  }
+
+  async function handleStatusChange(id: string, status: string) {
+    setStatusSaving((prev) => ({ ...prev, [id]: true }));
+    try {
+      const res = await fetch(`/api/catalogues/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        addToast(`Status changed to ${status}`, "success");
+        fetchCatalogues();
+      } else {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        addToast(err.error || "Failed to change status", "error");
+      }
+    } catch {
+      addToast("Network error", "error");
+    } finally {
+      setStatusSaving((prev) => ({ ...prev, [id]: false }));
+    }
   }
 
   async function handleSaveEdit() {
@@ -267,8 +436,10 @@ export default function CataloguesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: editForm.title,
+          description: editForm.description || null,
           store: editForm.store,
           type: editForm.type,
+          status: editForm.status,
           startDate: editForm.startDate,
           endDate: editForm.endDate,
           sourceUrl: editForm.sourceUrl || null,
@@ -346,10 +517,11 @@ export default function CataloguesPage() {
         )}
 
         {isDone && (
-          <ActionButton onClick={() => handleAction(c.id, "generate")} color="bg-indigo-600 text-white hover:bg-indigo-700" loading={busy}>
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-            Generate
-          </ActionButton>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500">
+            {c.articleCount > 0
+              ? `${c.articleCount} article(s) — voir page Articles`
+              : "Articles : voir page Articles"}
+          </span>
         )}
 
         {isRunning && !c.paused && (
@@ -412,13 +584,27 @@ export default function CataloguesPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Catalogues</h1>
-          <Link href="/admin/dashboard" className="text-blue-600 hover:underline">
-            ← Back to Dashboard
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setUploadOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+              Nouveau catalogue
+            </button>
+            <Link href="/admin/dashboard" className="text-blue-600 hover:underline text-sm">
+              ← Back to Dashboard
+            </Link>
+          </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Upload New Catalogue</h2>
+        {uploadOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !uploading && setUploadOpen(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-gray-900">Upload New Catalogue</h2>
+              <button onClick={() => !uploading && setUploadOpen(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            </div>
           <form onSubmit={handleUpload} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -487,12 +673,20 @@ export default function CataloguesPage() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="w-full border border-gray-300 rounded-md px-3 py-2" rows={2} />
             </div>
-            <button type="submit" disabled={uploading}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50">
-              {uploading ? "Uploading..." : "Upload Catalogue"}
-            </button>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setUploadOpen(false)} disabled={uploading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="submit" disabled={uploading}
+                className="bg-blue-600 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {uploading ? "Uploading..." : "Upload Catalogue"}
+              </button>
+            </div>
           </form>
+          </div>
         </div>
+        )}
 
         {loading ? (
           <div className="text-center py-12">Loading...</div>
@@ -538,6 +732,20 @@ export default function CataloguesPage() {
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(c.status, c.paused)}`}>
                           {getStatusLabel(c.status, c.paused)}
                         </span>
+                        <select
+                          value={c.status}
+                          disabled={statusSaving[c.id]}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => handleStatusChange(c.id, e.target.value)}
+                          className="mt-2 block w-full text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                          title="Change status"
+                        >
+                          {CATALOGUE_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">{c.processedPages}/{c.pageCount}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{c.productCount}</td>
@@ -558,6 +766,12 @@ export default function CataloguesPage() {
                             Details
                           </Link>
                         </div>
+                        {jobLog[c.id] && (
+                          <p className="mt-1.5 max-w-64 truncate font-mono text-[11px] text-gray-500" title={jobLog[c.id]}>
+                            <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500 align-middle" />
+                            {jobLog[c.id]}
+                          </p>
+                        )}
                       </td>
                     </tr>
                     {expandedId === c.id && (
@@ -607,6 +821,14 @@ export default function CataloguesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description (texte éditorial SEO)</label>
+                <textarea value={editForm.description}
+                  onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                  rows={4}
+                  placeholder="Texte de présentation affiché sur la page publique…"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Store</label>
                 <select value={editForm.store}
                   onChange={(e) => setEditForm((f) => ({ ...f, store: e.target.value }))}
@@ -633,6 +855,17 @@ export default function CataloguesPage() {
                   <option value="special_promotion">Promotion Spéciale</option>
                   <option value="other">Autre</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select value={editForm.status}
+                  onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {CATALOGUE_STATUSES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">PUBLISHED / REVIEW are visible on the site. ARCHIVED hides it.</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { articleTypeLabel } from "@/lib/article-types";
+import { BreadcrumbListJsonLd } from "@/components/json-ld";
 
 export const revalidate = 3600;
 
@@ -15,7 +17,7 @@ export const metadata = {
     siteName: "Catalogue Marjane",
     images: [
       {
-        url: "/opengraph-image",
+        url: "/api/og",
         width: 1200,
         height: 630,
         alt: "Articles Marjane",
@@ -26,7 +28,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "Articles et conseils Marjane - Promotions et bons plans",
     description: "Articles et conseils sur les promotions Marjane : meilleures offres, guides d'achat et bons plans au Maroc.",
-    images: ["/opengraph-image"],
+    images: ["/api/og"],
   },
 };
 
@@ -40,12 +42,20 @@ export default async function ArticlesListPage() {
       slug: true,
       excerpt: true,
       primaryKeyword: true,
+      articleType: true,
+      articleFocus: true,
       publishedAt: true,
     },
   });
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <BreadcrumbListJsonLd
+        items={[
+          { name: "Accueil", url: "/" },
+          { name: "Articles", url: "/articles" },
+        ]}
+      />
       <header className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
         <div className="max-w-7xl mx-auto px-4 py-12">
           <nav className="text-sm text-blue-200/70 mb-6 flex items-center gap-1.5">
@@ -84,6 +94,10 @@ export default async function ArticlesListPage() {
                 className="group bg-white border border-gray-100 rounded-2xl p-6 hover:shadow-lg transition-all"
               >
                 <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                    {articleTypeLabel(article.articleType)}
+                    {article.articleFocus ? ` — ${article.articleFocus}` : ""}
+                  </span>
                   <span className="text-[11px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
                     {article.primaryKeyword || "Conseil"}
                   </span>

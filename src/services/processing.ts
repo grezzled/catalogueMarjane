@@ -6,12 +6,38 @@ import { cropProductImage } from "@/services/cropping";
 import {
   detectCategory,
   detectBrand,
-  normalizeProductName,
 } from "@/services/categories";
+import { findMatchingProduct } from "@/services/product-match";
 import { extractJsonFromAIResponse } from "@/lib/utils";
 import type { PageAnalysis } from "@/types";
 
-export async function processCatalogue(catalogueId: string): Promise<void> {
+export interface ProcessingLog {
+  step: string;
+  status: "pending" | "in_progress" | "completed" | "error";
+  message: string;
+  timestamp: Date;
+}
+
+export async function processCatalogue(
+  catalogueId: string,
+  onLog?: (log: ProcessingLog) => unknown
+): Promise<void> {
+  const logs: ProcessingLog[] = [];
+  const addLog = (step: string, status: ProcessingLog["status"], message: string) => {
+    const log = { step, status, message, timestamp: new Date() };
+    logs.push(log);
+    if (status === "error") console.error(`[${status.toUpperCase()}] ${step}: ${message}`);
+    else console.log(`[${status.toUpperCase()}] ${step}: ${message}`);
+    if (onLog) {
+      try {
+        const r = onLog(log);
+        if (r instanceof Promise) r.catch((e) => console.error("onLog error:", e));
+      } catch (e) {
+        console.error("onLog error:", e);
+      }
+    }
+  };
+
   const catalogue = await prisma.catalogue.findUnique({
     where: { id: catalogueId },
     include: { pages: { orderBy: { pageNumber: "asc" } } },
@@ -34,10 +60,12 @@ export async function processCatalogue(catalogueId: string): Promise<void> {
   let totalProducts = 0;
   let totalOffers = 0;
 
+  addLog("start", "in_progress", `Analyzing ${totalPages} pages...`);
+
   for (const page of catalogue.pages) {
     const current = await prisma.catalogue.findUnique({ where: { id: catalogueId }, select: { paused: true } });
     if (current?.paused) {
-      console.log(`Catalogue ${catalogueId} paused, stopping`);
+      addLog("paused", "pending", `Catalogue paused at page ${page.pageNumber}, stopping`);
       return;
     }
 
@@ -45,6 +73,8 @@ export async function processCatalogue(catalogueId: string): Promise<void> {
       processedPages++;
       continue;
     }
+
+    addLog("analyze_page", "in_progress", `Page ${page.pageNumber}/${totalPages}...`);
 
     try {
       await prisma.cataloguePage.update({
@@ -106,24 +136,41 @@ export async function processCatalogue(catalogueId: string): Promise<void> {
       });
 
       for (const product of products) {
-        const normalizedName = normalizeProductName(product.name);
         const brand =
           product.brand || detectBrand(product.name);
 
-        let dbProduct = await prisma.product.findFirst({
-          where: { normalizedName },
+        // Smart cross-catalogue matching: brand + model ref → identity key → legacy name.
+        const { fields, match, enrich } = await findMatchingProduct({
+          name: product.name,
+          brand,
+          modelNumber: product.modelNumber,
+          specs: product.features,
         });
 
-        if (!dbProduct) {
-          dbProduct = await prisma.product.create({
-            data: {
-              name: product.name,
-              normalizedName,
-              brand,
-              category: product.category || category,
-              subcategory: product.subcategory,
-              specifications: JSON.stringify(product.features),
-            },
+        let dbProduct = match
+          ? await prisma.product.findUniqueOrThrow({ where: { id: match.id } })
+          : await prisma.product.create({
+              data: {
+                name: product.name,
+                normalizedName: fields.normalizedName,
+                identityKey: fields.identityKey,
+                modelNumber: fields.modelNumber,
+                size: fields.size,
+                sizeNum: fields.sizeNum,
+                variant: fields.variant,
+                coreName: fields.coreName,
+                brand,
+                category: product.category || category,
+                subcategory: product.subcategory,
+                specifications: JSON.stringify(product.features),
+              },
+            });
+
+        // Converge stored rows toward complete identities.
+        if (match && enrich) {
+          dbProduct = await prisma.product.update({
+            where: { id: dbProduct.id },
+            data: enrich,
           });
         }
 
@@ -196,8 +243,14 @@ export async function processCatalogue(catalogueId: string): Promise<void> {
           aiProcessingProgress: progress,
         },
       });
+      addLog(
+        "analyze_page",
+        "completed",
+        `Page ${page.pageNumber}/${totalPages}: ${pageProductCount} products, ${pageOfferCount} offers`
+      );
     } catch (error: any) {
       console.error(`Error processing page ${page.pageNumber}:`, error);
+      addLog("analyze_page", "error", `Page ${page.pageNumber} failed: ${error?.message || "unknown error"}`);
       const isAIError = error?.message?.includes("429") ||
         error?.message?.includes("quota") ||
         error?.message?.includes("AI request failed");
@@ -215,6 +268,7 @@ export async function processCatalogue(catalogueId: string): Promise<void> {
             errorMessage: `AI quota exceeded on page ${page.pageNumber}. All API keys exhausted.`,
           },
         });
+        addLog("quota", "error", `AI quota exhausted on page ${page.pageNumber}, stopping`);
         console.error(`Stopping catalogue ${catalogueId}: AI quota exhausted`);
         return;
       }
@@ -231,40 +285,9 @@ export async function processCatalogue(catalogueId: string): Promise<void> {
       aiProcessingProgress: 1,
     },
   });
-}
-
-function extractProductsFromText(text: string): PageAnalysis["products"] {
-  if (!text) return [];
-  const products: PageAnalysis["products"] = [];
-  const lines = text.split("\n").filter((l) => l.trim().length > 2);
-  const priceRegex = /(\d+[\.,]\d+)\s*(?:dh|Dh|DH|MAD)?/gi;
-  const nameRegex = /^([A-Za-zÀ-ÿ\s\-]+(?:\d+[a-z]*|[a-z]*\d+)?)$/i;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    const priceMatch = line.match(priceRegex);
-    if (priceMatch) {
-      const name = line.replace(priceRegex, "").trim();
-      const price = parseFloat(priceMatch[0].replace(",", ".").replace(/[^\d.]/g, ""));
-      if (name && name.length > 1 && !isNaN(price) && price > 0) {
-        products.push({
-          name,
-          brand: null,
-          category: "Other",
-          subcategory: null,
-          originalPrice: null,
-          salePrice: price,
-          currency: "MAD",
-          discountAmount: null,
-          discountPercentage: null,
-          installment: null,
-          features: [],
-          availabilityText: null,
-          confidence: 0.3,
-        });
-      }
-    }
-  }
-
-  return products;
+  addLog(
+    "complete",
+    "completed",
+    `Done: ${processedPages}/${totalPages} pages, ${totalProducts} products, ${totalOffers} offers`
+  );
 }

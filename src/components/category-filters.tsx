@@ -42,7 +42,8 @@ export default function CategoryFilters() {
   );
 
   const clearFilters = () => {
-    router.push("?");
+    const statut = searchParams.get("statut");
+    router.push(statut === "archive" ? "?statut=archive" : "?");
   };
 
   return (

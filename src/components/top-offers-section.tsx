@@ -108,7 +108,7 @@ export default function TopOffersSection({ topOffers, catalogueSlug, catalogueTi
               </div>
             </div>
             {topOffers[0].cataloguePage?.pageNumber && (
-              <OfferModal offer={topOffers[0]} catalogueSlug={catalogueSlug} catalogueTitle={catalogueTitle}>
+              <OfferModal offer={topOffers[0]} catalogueSlug={catalogueSlug} catalogueTitle={catalogueTitle} relatedOffers={topOffers.filter((o) => o.id !== topOffers[0].id && o.product.category === topOffers[0].product.category)}>
                 <button className="mt-3 w-full sm:w-auto inline-flex items-center justify-center bg-white text-red-600 font-bold text-xs px-5 py-2.5 rounded-lg hover:bg-white/90 transition-colors">
                   Voir l'offre
                 </button>
@@ -161,7 +161,7 @@ export default function TopOffersSection({ topOffers, catalogueSlug, catalogueTi
             </div>
             {topOffers[1].cataloguePage?.pageNumber && (
               <div className="px-3 pb-3">
-                <OfferModal offer={topOffers[1]} catalogueSlug={catalogueSlug} catalogueTitle={catalogueTitle}>
+                <OfferModal offer={topOffers[1]} catalogueSlug={catalogueSlug} catalogueTitle={catalogueTitle} relatedOffers={topOffers.filter((o) => o.id !== topOffers[1].id && o.product.category === topOffers[1].product.category)}>
                   <button className="block w-full bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold px-3 py-2 rounded-lg transition-colors text-center">
                     Voir l'offre
                   </button>
@@ -220,7 +220,7 @@ export default function TopOffersSection({ topOffers, catalogueSlug, catalogueTi
             </div>
             {offer.cataloguePage?.pageNumber && (
               <div className="px-3 pb-3">
-                <OfferModal offer={offer} catalogueSlug={catalogueSlug} catalogueTitle={catalogueTitle}>
+                <OfferModal offer={offer} catalogueSlug={catalogueSlug} catalogueTitle={catalogueTitle} relatedOffers={topOffers.filter((o) => o.id !== offer.id && o.product.category === offer.product.category)}>
                   <button className="block w-full bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold px-3 py-2 rounded-lg transition-colors text-center">
                     Voir l'offre
                   </button>

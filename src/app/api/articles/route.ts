@@ -17,6 +17,8 @@ export async function GET() {
         publishedAt: true,
         createdAt: true,
         catalogueId: true,
+        articleType: true,
+        articleFocus: true,
       },
     });
 

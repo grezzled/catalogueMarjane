@@ -12,4 +12,79 @@ body {
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  .animate-sheet-up {
+    animation: sheet-up 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* Marching-ants outline for shoppable product zones */
+  @keyframes hotspot-ants {
+    to {
+      stroke-dashoffset: -28;
+    }
+  }
+  .hotspot-ants {
+    animation: hotspot-ants 1.2s linear infinite;
+  }
+
+  /* Accessibility + battery: kill non-essential motion for users who ask for it */
+  @media (prefers-reduced-motion: reduce) {
+    .hotspot-ants,
+    .animate-sheet-up,
+    .animate-bounce,
+    .animate-pulse,
+    .animate-ping {
+      animation: none !important;
+    }
+  }
+
+  /* Radix dialog transitions — animate opacity + `translate` (independent
+     CSS property) so they compose with Tailwind transforms, never fight. */
+  @keyframes dialog-overlay-show {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes dialog-sheet-show {
+    from {
+      opacity: 0.5;
+      translate: 0 100%;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+  @keyframes dialog-pop-show {
+    from {
+      opacity: 0;
+      translate: 0 12px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+  .dialog-overlay[data-state="open"] {
+    animation: dialog-overlay-show 0.2s ease-out;
+  }
+  .dialog-content[data-state="open"] {
+    animation: dialog-sheet-show 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  @media (min-width: 640px) {
+    .dialog-content[data-state="open"] {
+      animation: dialog-pop-show 0.22s ease-out;
+    }
+  }
 }

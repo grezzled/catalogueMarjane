@@ -1,22 +1,26 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatDateRange } from "@/lib/utils";
+import { BreadcrumbListJsonLd } from "@/components/json-ld";
 
-export const revalidate = 3600;
+export const revalidate = 600;
 
 export const metadata = {
-  title: "Catalogues Marjane - Tous les catalogues",
+  title: "Tous les Catalogues Marjane - Archives et Promotions",
   description:
-    "Tous les catalogues Marjane : catalogues en cours, archive et prochaines promotions au Maroc.",
+    "Retrouvez tous les catalogues Marjane : catalogues en cours, prochains catalogues et archives de promotions au Maroc.",
+  alternates: {
+    canonical: "/catalogue-marjane",
+  },
   openGraph: {
-    title: "Catalogues Marjane - Tous les catalogues",
-    description: "Tous les catalogues Marjane : catalogues en cours, archive et prochaines promotions au Maroc.",
+    title: "Tous les Catalogues Marjane - Archives et Promotions",
+    description: "Retrouvez tous les catalogues Marjane : catalogues en cours, prochains catalogues et archives de promotions au Maroc.",
     type: "website",
     url: "/catalogue-marjane",
     siteName: "Catalogue Marjane",
     images: [
       {
-        url: "/opengraph-image",
+        url: "/api/og",
         width: 1200,
         height: 630,
         alt: "Catalogues Marjane",
@@ -25,15 +29,15 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Catalogues Marjane - Tous les catalogues",
-    description: "Tous les catalogues Marjane : catalogues en cours, archive et prochaines promotions au Maroc.",
-    images: ["/opengraph-image"],
+    title: "Tous les Catalogues Marjane - Archives et Promotions",
+    description: "Retrouvez tous les catalogues Marjane : catalogues en cours, prochains catalogues et archives de promotions au Maroc.",
+    images: ["/api/og"],
   },
 };
 
 export default async function CataloguesListPage() {
   const catalogues = await prisma.catalogue.findMany({
-    where: { status: { in: ["PUBLISHED", "REVIEW"] } },
+    where: { status: "PUBLISHED" },
     orderBy: { startDate: "desc" },
     select: {
       id: true,
@@ -63,6 +67,12 @@ export default async function CataloguesListPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <BreadcrumbListJsonLd
+        items={[
+          { name: "Accueil", url: "/" },
+          { name: "Catalogues", url: "/catalogue-marjane" },
+        ]}
+      />
       <header className="bg-gray-900 text-white">
         <div className="max-w-7xl mx-auto px-4 py-12">
           <h1 className="text-3xl font-bold mb-2">Tous les Catalogues Marjane</h1>

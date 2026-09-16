@@ -34,6 +34,9 @@ export default function Navbar() {
           >
             Articles
           </Link>
+          <Link href="/a-propos" className="text-gray-600 hover:text-gray-900">
+            À propos
+          </Link>
         </div>
 
         <button
@@ -68,6 +71,13 @@ export default function Navbar() {
               onClick={() => setIsOpen(false)}
             >
               Articles
+            </Link>
+            <Link
+              href="/a-propos"
+              className="block text-gray-600 hover:text-gray-900"
+              onClick={() => setIsOpen(false)}
+            >
+              À propos
             </Link>
           </div>
         </div>

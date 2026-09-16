@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.string().min(1),
   AI_PROVIDER: z.enum(["gemini", "ollama", "openai"]).default("gemini"),
   AI_MODEL: z.string().default("gemini-2.0-flash"),
   GEMINI_API_KEY: z.string().optional(),
@@ -16,6 +16,8 @@ const envSchema = z.object({
   UPLOAD_DIR: z.string().default("./uploads"),
   UPLOAD_DIR_ORIGINAL: z.string().default("./uploads-original"),
   DATA_DIR: z.string().default("./data"),
+  ADMIN_PASSWORD: z.string().optional(),
+  ADMIN_SECRET: z.string().min(32, "ADMIN_SECRET must be at least 32 chars").optional(),
 });
 
 function loadEnv() {

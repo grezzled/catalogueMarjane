@@ -31,6 +31,8 @@ export const CatalogueStatusSchema = z.enum([
 export const ProductSchema = z.object({
   name: z.string(),
   brand: z.string().nullable().optional(),
+  /** Manufacturer model/reference printed on the product or packaging. */
+  modelNumber: z.string().nullable().optional(),
   category: z.string(),
   subcategory: z.string().nullable().optional(),
   originalPrice: z.number().nullable().optional(),
@@ -48,15 +50,12 @@ export const ProductSchema = z.object({
   features: z.array(z.string()).default([]),
   availabilityText: z.string().nullable().optional(),
   confidence: z.number().default(0.5),
-  boundingBox: z
-    .object({
-      x: z.number().min(0).max(1),
-      y: z.number().min(0).max(1),
-      width: z.number().min(0).max(1),
-      height: z.number().min(0).max(1),
-    })
-    .nullable()
-    .optional(),
+  boundingBox: z.object({
+    x: z.number().min(0).max(1),
+    y: z.number().min(0).max(1),
+    width: z.number().min(0).max(1),
+    height: z.number().min(0).max(1),
+  }),
 });
 
 export const PageAnalysisSchema = z.object({

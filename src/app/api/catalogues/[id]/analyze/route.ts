@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { processCatalogue } from "@/services/processing";
+import { createJob, getActiveJobForCatalogue } from "@/services/jobs";
 
 export async function POST(
   request: NextRequest,
@@ -28,18 +28,34 @@ export async function POST(
       );
     }
 
-    processCatalogue(id).catch((err) => {
-      console.error("Background processing error:", err);
-      prisma.catalogue.update({
-        where: { id },
-        data: { status: "FAILED", errorMessage: String(err) },
+    // All AI work runs on the worker queue.
+    const existing = await getActiveJobForCatalogue(id, "PROCESS_CATALOGUE");
+    if (existing) {
+      return NextResponse.json({
+        success: true,
+        queued: false,
+        message: "Processing already in progress",
+        jobId: existing.id,
+        status: existing.status,
       });
-    });
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: "Processing started in background",
-    });
+    const jobId = await createJob(
+      "PROCESS_CATALOGUE",
+      { catalogueId: id },
+      { catalogueId: id }
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        queued: true,
+        message: "Processing queued — the worker will pick it up",
+        jobId,
+        status: "PENDING",
+      },
+      { status: 202 }
+    );
   } catch (error) {
     console.error("Error starting analysis:", error);
     return NextResponse.json(

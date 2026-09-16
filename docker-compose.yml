@@ -1,47 +1,49 @@
-version: "3.8"
+# SQLite-only stack — no Postgres.
+# The database is a single file (/data/prod.db) on a shared named volume,
+# so data survives restarts and both services see the same DB.
+# public/sitemap.xml is served from the shared uploads-free codebase volume
+# and refreshed by `npm run sitemap` / the worker — no rebuild needed.
 
 services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: marjanecatalogue
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
   app:
-    build: .
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://cataloguemarjane.com}
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3006:3006"
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/marjanecatalogue?schema=public
-      AI_PROVIDER: gemini
-      AI_MODEL: gemini-2.0-flash
+      DATABASE_URL: file:/data/prod.db
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://cataloguemarjane.com}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      AI_MODEL: ${AI_MODEL:-gemini-2.0-flash}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-    depends_on:
-      - db
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+    volumes:
+      - sqlite-data:/data
+      - uploads:/app/public/uploads
+    command: sh -c "npx prisma db push && npm start"
 
   worker:
-    build: .
-    command: npm run worker
+    build:
+      context: .
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/marjanecatalogue?schema=public
-      AI_PROVIDER: gemini
-      AI_MODEL: gemini-2.0-flash
+      DATABASE_URL: file:/data/prod.db
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://cataloguemarjane.com}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      AI_MODEL: ${AI_MODEL:-gemini-2.0-flash}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       UPLOAD_DIR: ./public/uploads
-    depends_on:
-      - db
     volumes:
+      - sqlite-data:/data
       - uploads:/app/public/uploads
+    depends_on:
+      - app
+    command: sh -c "sleep 10 && npm run worker"
 
 volumes:
-  pgdata:
+  sqlite-data:
   uploads:

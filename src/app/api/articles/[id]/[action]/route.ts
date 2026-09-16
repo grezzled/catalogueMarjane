@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { revalidateSite } from "@/lib/revalidate";
+import { revalidateArticle, revalidateSite } from "@/lib/revalidate";
 
 export async function POST(
   request: NextRequest,
@@ -43,6 +43,7 @@ export async function POST(
             publishedAt: new Date(),
           },
         });
+        revalidateArticle(article.slug);
         revalidateSite();
         return NextResponse.json({ success: true });
 
@@ -54,6 +55,7 @@ export async function POST(
             publishedAt: null,
           },
         });
+        revalidateArticle(article.slug);
         revalidateSite();
         return NextResponse.json({ success: true });
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { articleTypeLabel } from "@/lib/article-types";
 
 interface Article {
   id: string;
@@ -15,6 +16,8 @@ interface Article {
   publishedAt: string | null;
   createdAt: string;
   catalogueId: string | null;
+  articleType: string;
+  articleFocus: string | null;
 }
 
 interface GenerationLog {
@@ -58,20 +61,49 @@ export default function ArticlesPage() {
     }
   }
 
+  async function pollRewriteJob(jobId: string) {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) continue;
+        const job = await res.json();
+        const logs = job.result?.logs;
+        if (Array.isArray(logs) && logs.length > 0) setLogs(logs);
+        if (job.status === "COMPLETED" || job.status === "FAILED") {
+          fetchArticles();
+          return;
+        }
+      } catch (err) {
+        console.error("Job poll error:", err);
+      }
+    }
+  }
+
   async function handleRewrite(article: Article) {
     if (!article.catalogueId) return;
     setRewriting((prev) => ({ ...prev, [article.id]: true }));
     setLogs([]);
     setShowLogs(true);
     try {
+      // Rewrite preserves the article's intent (type + focus category).
       const res = await fetch(`/api/catalogues/${article.catalogueId}/generate-article`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          articleType: article.articleType ?? "overview",
+          ...(article.articleFocus ? { category: article.articleFocus } : {}),
+        }),
       });
-      const data = await res.json();
-      if (data.logs) {
-        setLogs(data.logs);
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.jobId) {
+        // Queued — stream the worker's step logs into the panel below.
+        pollRewriteJob(data.jobId);
+      } else if (res.ok) {
+        fetchArticles();
+      } else {
+        setLogs([{ step: "error", status: "error", message: data?.error || "Failed to queue rewrite", timestamp: new Date().toISOString() }]);
       }
-      if (res.ok) fetchArticles();
     } catch (err) {
       console.error("Rewrite error:", err);
       setLogs([{ step: "error", status: "error", message: "Failed to generate article", timestamp: new Date().toISOString() }]);
@@ -88,6 +120,7 @@ export default function ArticlesPage() {
       REVIEW: "bg-orange-100 text-orange-800",
       APPROVED: "bg-green-100 text-green-800",
       PUBLISHED: "bg-green-100 text-green-800",
+      EXPIRED: "bg-gray-200 text-gray-500",
       REJECTED: "bg-red-100 text-red-800",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
@@ -98,9 +131,17 @@ export default function ArticlesPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Articles</h1>
-          <Link href="/admin/dashboard" className="text-blue-600 hover:underline">
-            ← Back to Dashboard
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin/articles/new"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+            >
+              + Nouvel article
+            </Link>
+            <Link href="/admin/dashboard" className="text-blue-600 hover:underline">
+              ← Back to Dashboard
+            </Link>
+          </div>
         </div>
 
         {loading ? (
@@ -141,6 +182,10 @@ export default function ArticlesPage() {
                         {a.title}
                       </Link>
                       <p className="text-sm text-gray-500">/{a.slug}</p>
+                      <span className="inline-flex mt-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-indigo-50 text-indigo-700">
+                        {articleTypeLabel(a.articleType)}
+                        {a.articleFocus ? ` — ${a.articleFocus}` : ""}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <span
@@ -200,6 +245,15 @@ export default function ArticlesPage() {
                           className="text-blue-600 hover:underline"
                         >
                           Publish
+                        </button>
+                      )}
+                      {a.status === "EXPIRED" && (
+                        <button
+                          onClick={() => handleAction(a.id, "publish")}
+                          className="text-blue-600 hover:underline"
+                          title="Republish an expired article"
+                        >
+                          Republish
                         </button>
                       )}
                       {a.status === "PUBLISHED" && (

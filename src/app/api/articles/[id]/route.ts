@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { revalidateSite } from "@/lib/revalidate";
+import { revalidateArticle, revalidateSite } from "@/lib/revalidate";
 
 export async function GET(
   request: NextRequest,
@@ -52,13 +52,27 @@ export async function GET(
       take: 5,
     });
 
-    return NextResponse.json({ ...article, relatedArticles });
+    return NextResponse.json({ ...article, relatedArticles, faq: parseFaq(article.faq) });
   } catch (error) {
     console.error("Error fetching article:", error);
     return NextResponse.json(
       { error: "Failed to fetch article" },
       { status: 500 }
     );
+  }
+}
+
+function parseFaq(raw: unknown): Array<{ question: string; answer: string }> {
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (f): f is { question: string; answer: string } =>
+        !!f && typeof f.question === "string" && typeof f.answer === "string"
+    );
+  } catch {
+    return [];
   }
 }
 
@@ -91,10 +105,8 @@ export async function PUT(
       primaryKeyword,
       secondaryKeywords,
       searchIntent,
-      category,
       status,
       faq,
-      relatedCategories,
       articleCategories,
     } = body;
 
@@ -120,10 +132,15 @@ export async function PUT(
     if (primaryKeyword !== undefined) updateData.primaryKeyword = primaryKeyword;
     if (secondaryKeywords !== undefined) updateData.secondaryKeywords = secondaryKeywords;
     if (searchIntent !== undefined) updateData.searchIntent = searchIntent;
-    if (category !== undefined) updateData.category = category;
     if (status !== undefined) updateData.status = status;
-    if (faq !== undefined) updateData.faq = faq;
-    if (relatedCategories !== undefined) updateData.relatedCategories = relatedCategories;
+    if (faq !== undefined) {
+      updateData.faq =
+        faq === null
+          ? null
+          : typeof faq === "string"
+            ? faq
+            : JSON.stringify(faq);
+    }
 
     // Handle status transitions
     if (status && status !== article.status) {
@@ -152,9 +169,16 @@ export async function PUT(
       }
     }
 
-    // Revalidate if status changed to/from published
+    // Revalidate on visibility or content changes of live articles.
+    const newSlug = typeof slug === "string" ? slug : article.slug;
     if (status !== article.status) {
       revalidateSite();
+      if (status === "PUBLISHED" || article.status === "PUBLISHED") {
+        revalidateArticle(article.slug);
+        if (newSlug !== article.slug) revalidateArticle(newSlug);
+      }
+    } else if (article.status === "PUBLISHED") {
+      revalidateArticle(newSlug);
     }
 
     return NextResponse.json({ success: true, article: updatedArticle });

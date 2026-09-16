@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { AIProviderFactory } from "@/ai";
-import { PAGE_ANALYSIS_PROMPT } from "@/ai/prompts";
-import { imageToBase64 } from "@/services/pdf";
-import { cropProductImage } from "@/services/cropping";
-import { normalizeProductName } from "@/services/categories";
-import { extractJsonFromAIResponse } from "@/lib/utils";
-import type { PageAnalysis } from "@/types";
-import { dirname } from "path";
+import { createJob, getActiveJobForPage } from "@/services/jobs";
+
+function toJobResponse(job: {
+  id: string;
+  type: string;
+  status: string;
+  retryCount: number;
+  maxRetries: number;
+  errorMessage: string | null;
+}) {
+  return {
+    jobId: job.id,
+    type: job.type,
+    status: job.status,
+    retryCount: job.retryCount,
+    maxRetries: job.maxRetries,
+    error: job.errorMessage,
+  };
+}
 
 export async function POST(
   request: NextRequest,
@@ -18,55 +29,41 @@ export async function POST(
 
     const page = await prisma.cataloguePage.findUnique({
       where: { id: pageId },
-      include: { catalogue: true },
+      select: { id: true, catalogueId: true, imagePath: true },
     });
 
     if (!page || !page.imagePath) {
       return NextResponse.json({ error: "Page not found or no image" }, { status: 404 });
     }
 
-    const provider = await AIProviderFactory.create(
-      process.env.AI_PROVIDER || "gemini",
-      process.env as Record<string, string | undefined>
-    );
-
-    const imageBase64 = await imageToBase64(page.imagePath, page.catalogueId);
-    const textContext = page.extractedText
-      ? `\n\nExtracted text from PDF:\n${page.extractedText}`
-      : "";
-
-    const response = await provider.analyzeImage(
-      imageBase64,
-      PAGE_ANALYSIS_PROMPT + textContext
-    );
-
-    const analysis = extractJsonFromAIResponse(response) as PageAnalysis;
-    const products = analysis.products || [];
-    const productsDir = `${dirname(page.imagePath)}/../products`;
-
-    let cropped = 0;
-    for (const product of products) {
-      if (!product.boundingBox) continue;
-
-      const normalizedName = normalizeProductName(product.name);
-      const dbProduct = await prisma.product.findFirst({
-        where: { normalizedName },
+    // All AI work runs on the worker queue — no synchronous fallback.
+    // Idempotency: reuse the active job instead of queueing duplicates.
+    const existing = await getActiveJobForPage(pageId, "ANALYZE_PAGE");
+    if (existing) {
+      return NextResponse.json({
+        success: true,
+        queued: false,
+        message: "Page job already in progress",
+        ...toJobResponse(existing),
       });
-
-      if (!dbProduct || dbProduct.imageUrl) continue;
-
-      const outputPath = `${productsDir}/${dbProduct.id}-page${page.pageNumber}.webp`;
-      const result = await cropProductImage(page.imagePath, product.boundingBox, outputPath, page.catalogueId);
-      if (result) {
-        await prisma.product.update({
-          where: { id: dbProduct.id },
-          data: { imageUrl: result },
-        });
-        cropped++;
-      }
     }
 
-    return NextResponse.json({ success: true, cropped, total: products.length });
+    const jobId = await createJob(
+      "ANALYZE_PAGE",
+      { pageId, mode: "crops-only" },
+      { catalogueId: page.catalogueId, pageId }
+    );
+    const job = await prisma.aIJob.findUnique({ where: { id: jobId } });
+
+    return NextResponse.json(
+      {
+        success: true,
+        queued: true,
+        message: "Cropping queued — the worker will pick it up",
+        ...toJobResponse(job!),
+      },
+      { status: 202 }
+    );
   } catch (error) {
     console.error("Crop images error:", error);
     return NextResponse.json({ error: "Failed to crop images" }, { status: 500 });

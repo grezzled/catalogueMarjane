@@ -164,3 +164,26 @@ export async function computeFileHash(buffer: Buffer): Promise<string> {
   const crypto = await import("crypto");
   return crypto.createHash("sha256").update(buffer).digest("hex");
 }
+
+/**
+ * Resolve a stored pdfPath to a readable file. Catalogues created before
+ * UPLOAD_DIR moved under ./public store paths like `uploads/<id>/...`
+ * while the files live in `public/uploads/<id>/...` — try both.
+ * Returns null when neither exists.
+ */
+export async function resolvePdfPath(storedPath: string | null): Promise<string | null> {
+  if (!storedPath) return null;
+  const candidates = [storedPath];
+  if (!storedPath.startsWith("public/")) {
+    candidates.push(path.join("public", storedPath));
+  }
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+}

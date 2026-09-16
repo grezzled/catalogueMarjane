@@ -1,63 +1,78 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createHmac } from "crypto";
+import {
+  ADMIN_COOKIE_NAME,
+  ADMIN_SESSION_TTL_SECONDS,
+  createAdminCookieValue,
+  getAdminSecret,
+  passwordsEqual,
+} from "@/lib/admin-auth";
+import { checkLoginRateLimit, clearLoginRateLimit } from "@/lib/rate-limit";
 
-const SECRET = process.env.ADMIN_SECRET || process.env.ADMIN_PASSWORD + "_secret_key";
-
-function sign(value: string): string {
-  return createHmac("sha256", SECRET).update(value).digest("hex");
-}
-
-// Simple in-memory rate limiter
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const attempt = loginAttempts.get(ip);
-
-  if (!attempt || now > attempt.resetAt) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 }); // 15 min window
-    return true;
-  }
-
-  if (attempt.count >= 5) {
-    return false; // 5 attempts max
-  }
-
-  attempt.count++;
-  return true;
+function getClientIp(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return (
+    request.headers.get("x-real-ip") ||
+    // Next.js dev server may not set these; fall back so limiting still works per-instance
+    "unknown"
+  );
 }
 
 export async function POST(request: Request) {
-  const { password } = await request.json();
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
-
-  if (!adminPassword) {
+  const secret = getAdminSecret();
+  if (!secret) {
+    console.error(
+      "ADMIN_SECRET is missing or shorter than 32 chars — admin login disabled."
+    );
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 
-  // Rate limit check
-  if (!checkRateLimit(ip)) {
+  let password: unknown;
+  try {
+    ({ password } = await request.json());
+  } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    console.error("ADMIN_PASSWORD is not set — admin login disabled.");
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+
+  const ip = getClientIp(request);
+  const { allowed, retryAfterSeconds } = await checkLoginRateLimit(ip);
+  if (!allowed) {
     return NextResponse.json(
       { error: "Trop de tentatives. Réessayez dans 15 minutes." },
-      { status: 429 }
+      {
+        status: 429,
+        headers: { "Retry-After": String(retryAfterSeconds) },
+      }
     );
   }
 
-  if (password !== adminPassword) {
-    return NextResponse.json({ error: "Mot de passe incorrect" }, { status: 401 });
+  if (typeof password !== "string" || !passwordsEqual(password, adminPassword)) {
+    return NextResponse.json(
+      { error: "Mot de passe incorrect" },
+      { status: 401 }
+    );
   }
 
-  // Success - sign the cookie value
-  const cookieValue = sign("authenticated");
+  await clearLoginRateLimit(ip);
+
+  const cookieValue = createAdminCookieValue();
+  if (!cookieValue) {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 
   const cookieStore = await cookies();
-  cookieStore.set("admin_auth", cookieValue, {
+  cookieStore.set(ADMIN_COOKIE_NAME, cookieValue, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24, // 24 hours
+    sameSite: "strict",
+    maxAge: ADMIN_SESSION_TTL_SECONDS,
     path: "/",
   });
 

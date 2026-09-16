@@ -14,6 +14,7 @@ Identify every product and promotional offer visible on the page.
 For every product extract:
 - product name (exact text as shown)
 - brand (if visible)
+- manufacturer model/reference number if printed on the product, packaging or label (e.g. UE55CU7172, MF109422 — copy it exactly, else null)
 - category (best classification)
 - subcategory (if applicable)
 - old price / original price
@@ -25,7 +26,14 @@ For every product extract:
 - availability information
 - installment information (monthly payment, number of months)
 - visible promotional dates
-- bounding box: the rectangular area on the page image where this product's image/visual appears. Return as { x, y, width, height } where all values are decimals from 0 to 1 representing percentage of page dimensions. x,y is the top-left corner. Be as precise as possible — crop tightly around the product image area.
+- bounding box (REQUIRED for every product, never null — see below)
+
+BOUNDING BOX — MANDATORY:
+Every product MUST include a "boundingBox": the rectangular area on the page image where this product's image/visual appears.
+Return it as { x, y, width, height } where all values are decimals from 0 to 1 representing fractions of the page dimensions. x,y is the top-left corner.
+Crop tightly around the product visual (the photo/illustration of the product itself, not the price tag or surrounding text).
+If a product has no distinct visual on the page, estimate the area of its text block instead of omitting the box.
+A product without a boundingBox is an invalid result — always include one.
 
 Also determine:
 - page type: cover, back_cover, product_offers, category_overview, editorial, mixed, unknown
@@ -43,6 +51,7 @@ Return ONLY valid JSON matching this structure:
     {
       "name": "<product name>",
       "brand": "<brand or null>",
+      "modelNumber": "<manufacturer reference or null>",
       "category": "<category>",
       "subcategory": "<subcategory or null>",
       "originalPrice": <number or null>,
@@ -85,16 +94,13 @@ RULES:
 8. Every product price must correspond EXACTLY to the supplied data.
 9. When product images are available (indicated by [Image: URL] in the data), include them in the article using markdown image syntax: ![Product Name](URL). Place images near the relevant product description.
 10. Always mention the store type (Marjane, Marjane Hyper, or Marjane Market) in the article introduction and naturally throughout the content.
-11. Present products in tables with compact formatting. Use this format for each product:
-    | Image | Product | Price | Discount |
-    |-------|---------|-------|----------|
-    | ![Name](URL) | Product Name | Price DH | -X% |
-    Keep images small (use standard markdown image syntax, the styling will handle sizing).
+11. Do NOT include price tables or product grids. A verified offers table is appended automatically after your content — your job is the editorial layer: context, comparisons in prose, shopping advice, category highlights.
 12. When page images are available for categories (indicated by [Page Image: URL] in the data), include them as section headers or visual breaks between category sections.
+13. Refer to products in prose with their page links (format 10 below) so readers can find them in the auto-appended table — never restate full price lists yourself.
 
 INTERNAL LINKS & REFERENCES — USE ONLY THESE EXACT FORMATS:
-10. Catalogue page link: [Voir page X](/catalogue-marjane/{CATALOGUE_SLUG}/page/{pageNumber})
-    Example: [Voir page 8](/catalogue-marjane/la-rentree-des-bonnes-affaires-25-aout-13-septembre-2026/page/8)
+10. Catalogue page link (opens the in-page viewer on that page): [Voir page X](/catalogue-marjane/{CATALOGUE_SLUG}#page-{pageNumber})
+    Example: [Voir page 8](/catalogue-marjane/la-rentree-des-bonnes-affaires-25-aout-13-septembre-2026#page-8)
 11. Catalogue overview link: [Voir le catalogue complet](/catalogue-marjane/{CATALOGUE_SLUG})
 12. Category link (for Épicerie, Boissons, High-Tech, Électroménager, etc.): [promotions {Category}](/promotions-marjane/{category-slug-lowercase})
     Example: [promotions Épicerie](/promotions-marjane/epicerie)  [promotions Boissons](/promotions-marjane/boissons)
@@ -105,11 +111,11 @@ INTERNAL LINKS & REFERENCES — USE ONLY THESE EXACT FORMATS:
 STRUCTURE the article with:
 - H1 title (include primary keyword naturally)
 - Brief introduction (2-3 sentences max) with link to catalogue
-- H2 sections for: key offers, categories, best deals, useful information
-- Product tables where price comparisons help
+- H2 sections for: key offers, categories, best deals, useful information (prose and short lists — no price tables)
 - "Où trouver ces offres?" section with page links
 - FAQ section with 3-5 relevant questions
 - Conclusion with validity dates and catalogue link
+(Do NOT add a closing offers/price table — it is appended automatically.)
 
 Return ONLY valid JSON:
 {
@@ -131,7 +137,6 @@ Return ONLY valid JSON:
 }`;
 
 export const SEO_QUALITY_PROMPT = `You are an SEO quality analyzer for Moroccan supermarket catalogue content.
-
 Analyze the article and score it on multiple quality dimensions.
 
 Score each dimension from 0 to 100:
@@ -160,3 +165,101 @@ Return ONLY valid JSON:
   "keywordStuffingRisk": <0-100>,
   "recommendation": "<publish|review|regenerate|reject>"
 }`;
+
+/**
+ * Structural variants rotate the article skeleton per catalogue so that
+ * successive catalogue articles don't share one identical template
+ * (doorway-pattern risk). Selected deterministically from the catalogue id.
+ */
+export interface ArticleStructureVariant {
+  id: string;
+  instruction: string;
+}
+
+export const ARTICLE_STRUCTURE_VARIANTS: ArticleStructureVariant[] = [
+  {
+    id: "deals-first",
+    instruction: `STRUCTURE VARIANT — "Top promos first":
+- H1 title with primary keyword
+- 2-sentence intro with catalogue link and validity dates
+- H2 "Top promotions" FIRST: a tight ranked list of the 8-10 biggest discounts BY NAME with page links (no prices in tables — prose + links only, the verified table follows your article)
+- H2 sections per category AFTER, in prose with short highlight lists (max 6 items each)
+- "Où trouver ces offres?" with page links
+- FAQ (3 questions focused on prices and availability)
+- Short conclusion with catalogue link`,
+  },
+  {
+    id: "category-guide",
+    instruction: `STRUCTURE VARIANT — "Category guide":
+- H1 title with primary keyword
+- Intro framed as a guided tour of the catalogue's universes (2-3 sentences, catalogue link, dates)
+- One H2 per category IN ORDER OF DISCOUNT DEPTH (strongest first), products discussed in prose with page links; compare similar products in sentences, never in price tables
+- H2 "Les meilleures affaires" near the end: bullet list of the 5 picks with page links
+- "Où trouver ces offres?" with page links
+- FAQ (4 questions focused on categories, store sections and dates)
+- Conclusion with catalogue link`,
+  },
+  {
+    id: "smart-shopper",
+    instruction: `STRUCTURE VARIANT — "Smart shopper":
+- H1 title with primary keyword
+- Intro framed around total savings strategy (2-3 sentences, catalogue link, dates)
+- H2 "Comment maximiser vos économies": 3-4 concrete tactics using this catalogue's offers, naming products with page links
+- H2 "Comparatifs": 2-3 prose comparisons (same need, different products — name winners, link pages, no price grids)
+- H2 "Autres rayons à ne pas manquer": brief category round-up with links
+- "Où trouver ces offres?" with page links
+- FAQ (3-5 questions focused on savings, loyalty, stock and validity)
+- Conclusion with catalogue link`,
+  },
+];
+
+/** Deterministic variant pick so rewrites of one catalogue stay consistent. */
+export function pickStructureVariant(seed: string): ArticleStructureVariant {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return ARTICLE_STRUCTURE_VARIANTS[hash % ARTICLE_STRUCTURE_VARIANTS.length];
+}
+
+/**
+ * Per-article-type angle, appended after the base generation prompt.
+ * Each type works on its own FOCUS OFFERS data slice — the prose must stay
+ * inside that slice and the title must reflect the angle.
+ */
+export const ARTICLE_TYPE_INSTRUCTIONS: Record<string, string> = {
+  overview: `ARTICLE ANGLE — catalogue overview:
+- Cover the whole catalogue: every strong category gets an H2 section.
+- The H1 title names the catalogue event/period (e.g. "Catalogue Marjane Rentrée : ...").
+- Conclusion recalls the validity dates and links the catalogue.`,
+
+  category_focus: `ARTICLE ANGLE — single-category focus:
+- Write EXCLUSIVELY about the FOCUS CATEGORY below. Do not discuss other categories except one short "Autres rayons" H2 at the end (no products from them).
+- The H1 title MUST name the focus category and the catalogue (e.g. "Marjane High-Tech : les meilleures offres du catalogue ...").
+- primaryKeyword must target "{category} Marjane" style intent.
+- Sections: best picks in this category (prose + page links), price ranges observed, "Où trouver ces offres?" limited to this category's pages.`,
+
+  top_deals: `ARTICLE ANGLE — biggest discounts:
+- Frame the whole article around savings depth: rank and discuss ONLY the highest-discount products from FOCUS OFFERS.
+- The H1 title MUST promise big savings (e.g. "Les plus grosses remises Marjane : jusqu'à -X% ...").
+- Open with the single deepest discount as the hook, then count down.
+- One H2 per savings tier or per standout product; each product named with its page link.
+- FAQ focused on stock, validity and availability of top deals.`,
+
+  budget: `ARTICLE ANGLE — small prices (under 100 DH):
+- Frame the article around smart small-budget shopping: every product discussed costs less than 100 DH.
+- The H1 title MUST mention small prices (e.g. "Marjane à moins de 100 DH : ...").
+- Group picks by need (quotidien, cuisine, entretien, etc.) in prose with page links.
+- FAQ focused on budget shopping, stock and catalogue validity.`,
+
+  buying_guide: `ARTICLE ANGLE — buying guide for the FOCUS CATEGORY:
+- This is ADVICE content, not a promo list: teach the reader how to choose in this category (key criteria, formats/sizes, what justifies price differences, mistakes to avoid).
+- Illustrate each criterion with 1-2 real products from FOCUS OFFERS (named, with page links and exact prices) — never invent examples.
+- The H1 title MUST read as a guide (e.g. "Guide d'achat {category} chez Marjane : ...").
+- Include an H2 "Notre sélection du catalogue" with 3-5 picks and an H2 "Où trouver ces offres?".
+- FAQ focused on choosing well (criteria, warranties, sizes, compatibility).`,
+};
+
+export function articleTypeInstruction(typeId: string): string {
+  return ARTICLE_TYPE_INSTRUCTIONS[typeId] ?? ARTICLE_TYPE_INSTRUCTIONS.overview;
+}

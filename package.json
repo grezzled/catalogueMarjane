@@ -12,11 +12,17 @@
     "db:studio": "npx prisma studio",
     "db:generate": "npx prisma generate",
     "migrate:webp": "npx tsx scripts/migrate-to-webp.ts",
+    "sitemap": "npx tsx scripts/generate-sitemap.ts",
+    "editorial": "npx tsx scripts/generate-editorials.ts",
+    "rewrite:article-links": "npx tsx scripts/rewrite-article-page-links.ts",
     "postinstall": "prisma generate && prisma skills sync || exit 0"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^5.22.0",
+    "@radix-ui/react-dialog": "^1.1.23",
+    "google-auth-library": "^11.0.2",
+    "googleapis": "^180.0.0",
     "lucide-react": "^1.43.0",
     "mime-types": "^3.0.2",
     "next": "16.3.4",

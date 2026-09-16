@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FileText, LayoutGrid, Megaphone } from "lucide-react";
 import { getCategoryIcon } from "@/lib/category-icons";
+import { articleTypeLabel } from "@/lib/article-types";
 
 interface Article {
   id: string;
@@ -10,6 +11,8 @@ interface Article {
   slug: string;
   excerpt: string | null;
   primaryKeyword: string | null;
+  articleType: string;
+  articleFocus: string | null;
   publishedAt: Date | null;
 }
 
@@ -27,37 +30,51 @@ interface CatalogueSidebarProps {
 
 export default function CatalogueSidebar({ articles, categories, currentCategory }: CatalogueSidebarProps) {
   return (
-    <aside className="space-y-6">
+    <div className="space-y-10">
       {articles.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="bg-orange-100 rounded-lg p-1.5">
-              <FileText className="h-4 w-4 text-orange-600" />
+        <div>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-gradient-to-br from-orange-500 to-amber-400 rounded-xl p-2.5 shadow-lg shadow-orange-200">
+              <FileText className="h-6 w-6 text-white" />
             </div>
-            <h3 className="font-bold text-gray-900 text-sm">Articles associés</h3>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Articles associés</h2>
+              <p className="text-sm text-gray-500">Nos analyses et conseils</p>
+            </div>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {articles.slice(0, 5).map((article) => (
               <Link
                 key={article.id}
                 href={`/articles/${article.slug}`}
-                className="block group"
+                className="group block bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-lg transition-all"
               >
-                <div className="flex items-start gap-2">
-                  {article.primaryKeyword && (
-                    <span className="text-[9px] font-medium text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
-                      {article.primaryKeyword}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                    {articleTypeLabel(article.articleType)}
+                    {article.articleFocus ? ` — ${article.articleFocus}` : ""}
+                  </span>
+                  <span className="text-[11px] font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                    {article.primaryKeyword || "Conseil"}
+                  </span>
+                  {article.publishedAt && (
+                    <span className="text-xs text-gray-400">
+                      {new Date(article.publishedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
                     </span>
                   )}
                 </div>
-                <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors leading-snug mt-1 line-clamp-2">
+                <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors leading-snug">
                   {article.title}
                 </p>
                 {article.excerpt && (
-                  <p className="text-xs text-gray-500 line-clamp-2 mt-1">
+                  <p className="text-sm text-gray-500 line-clamp-2 mt-2">
                     {article.excerpt}
                   </p>
                 )}
+                <span className="inline-flex items-center gap-1 mt-4 text-xs text-blue-600 font-medium group-hover:text-blue-700">
+                  Lire l&apos;article
+                  <svg className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+                </span>
               </Link>
             ))}
           </div>
@@ -73,12 +90,15 @@ export default function CatalogueSidebar({ articles, categories, currentCategory
       )}
 
       {categories.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="bg-gray-100 rounded-lg p-1.5">
-              <LayoutGrid className="h-4 w-4 text-gray-600" />
+        <div>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-gradient-to-br from-indigo-500 to-blue-400 rounded-xl p-2.5 shadow-lg shadow-indigo-200">
+              <LayoutGrid className="h-6 w-6 text-white" />
             </div>
-            <h3 className="font-bold text-gray-900 text-sm">Catégories</h3>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Catégories</h2>
+              <p className="text-sm text-gray-500">Explorer par rayon</p>
+            </div>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {categories.map((cat) => {
@@ -114,6 +134,6 @@ export default function CatalogueSidebar({ articles, categories, currentCategory
           <span className="text-xs text-gray-400">Espace publicitaire</span>
         </div>
       </div>*/}
-    </aside>
+    </div>
   );
 }

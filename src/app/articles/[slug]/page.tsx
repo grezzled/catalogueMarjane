@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { articleTypeLabel } from "@/lib/article-types";
+import { BreadcrumbListJsonLd } from "@/components/json-ld";
+import CommentsSection from "@/components/comments-section";
 import type { Metadata } from "next";
 
 export const revalidate = 3600;
@@ -45,7 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       siteName: "Catalogue Marjane",
       images: [
         {
-          url: "/opengraph-image",
+          url: `/api/og?type=article&slug=${article.slug}`,
           width: 1200,
           height: 630,
           alt: article.title,
@@ -56,7 +59,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title: article.metaTitle || article.title,
       description: article.metaDescription || undefined,
-      images: ["/opengraph-image"],
+      images: [`/api/og?type=article&slug=${article.slug}`],
     },
   };
 }
@@ -262,7 +265,6 @@ export default async function ArticlePage({ params }: Props) {
   });
 
   if (!article || article.status !== "PUBLISHED") notFound();
-
   const relatedArticles = await prisma.article.findMany({
     where: {
       status: "PUBLISHED",
@@ -300,15 +302,58 @@ export default async function ArticlePage({ params }: Props) {
 
   const renderedContent = renderContent(article.content);
 
+  let faqItems: Array<{ question: string; answer: string }> = [];
+  try {
+    const parsed = article.faq
+      ? typeof article.faq === "string"
+        ? JSON.parse(article.faq)
+        : article.faq
+      : [];
+    if (Array.isArray(parsed)) {
+      faqItems = parsed.filter(
+        (f): f is { question: string; answer: string } =>
+          !!f && typeof f.question === "string" && typeof f.answer === "string"
+      );
+    }
+  } catch {
+    faqItems = [];
+  }
+
+  const faqJsonLd =
+    faqItems.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqItems.map((f) => ({
+            "@type": "Question",
+            name: f.question,
+            acceptedAnswer: { "@type": "Answer", text: f.answer },
+          })),
+        }
+      : null;
+
   const catalogueFirstPage = article.catalogue?.pages?.[0]?.imagePath;
   const catalogueImageUrl = toImageUrl(catalogueFirstPage || null);
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <BreadcrumbListJsonLd
+        items={[
+          { name: "Accueil", url: "/" },
+          { name: "Articles", url: "/articles" },
+          { name: article.title, url: `/articles/${article.slug}` },
+        ]}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
 
       <header className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
         <div className="max-w-4xl mx-auto px-4 py-10">
@@ -323,6 +368,10 @@ export default async function ArticlePage({ params }: Props) {
             {article.title}
           </h1>
           <div className="flex items-center gap-4 mt-4">
+            <span className="text-xs bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-full font-medium">
+              {articleTypeLabel(article.articleType)}
+              {article.articleFocus ? ` — ${article.articleFocus}` : ""}
+            </span>
             {article.publishedAt && (
               <span className="text-blue-200 text-sm flex items-center gap-1.5">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
@@ -353,6 +402,9 @@ export default async function ArticlePage({ params }: Props) {
               className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 md:p-10"
               dangerouslySetInnerHTML={{ __html: renderedContent }}
             />
+            <div className="mt-8">
+              <CommentsSection target="article" targetId={article.id} />
+            </div>
           </div>
 
           <aside className="space-y-6">

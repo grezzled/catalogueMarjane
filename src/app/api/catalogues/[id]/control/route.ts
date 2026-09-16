@@ -2,9 +2,58 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { rm } from "fs/promises";
 import path from "path";
-import { processCatalogue } from "@/services/processing";
-import { generateArticleForCatalogue } from "@/services/articles";
+import { createJob, getActiveJobForCatalogue } from "@/services/jobs";
 import { revalidateSite } from "@/lib/revalidate";
+
+function toJobResponse(job: {
+  id: string;
+  type: string;
+  status: string;
+  retryCount: number;
+  maxRetries: number;
+  errorMessage: string | null;
+}) {
+  return {
+    jobId: job.id,
+    type: job.type,
+    status: job.status,
+    retryCount: job.retryCount,
+    maxRetries: job.maxRetries,
+    error: job.errorMessage,
+  };
+}
+
+/**
+ * Queue a PROCESS_CATALOGUE job (idempotent). All AI work runs on the
+ * worker queue — there is intentionally no synchronous fallback.
+ */
+async function enqueueProcessing(id: string, message: string) {
+  const existing = await getActiveJobForCatalogue(id, "PROCESS_CATALOGUE");
+  if (existing) {
+    return NextResponse.json({
+      success: true,
+      queued: false,
+      message: "Processing already in progress",
+      ...toJobResponse(existing),
+    });
+  }
+
+  const jobId = await createJob(
+    "PROCESS_CATALOGUE",
+    { catalogueId: id },
+    { catalogueId: id }
+  );
+  const job = await prisma.aIJob.findUnique({ where: { id: jobId } });
+  return NextResponse.json(
+    {
+      success: true,
+      queued: true,
+      message: `${message} — worker will pick it up`,
+      ...toJobResponse(job!),
+    },
+    { status: 202 }
+  );
+}
 
 export async function POST(
   request: NextRequest,
@@ -44,9 +93,7 @@ export async function POST(
           data: { paused: false, errorMessage: null },
         });
         if (["PROCESSING", "EXTRACTING", "ANALYZING", "FAILED"].includes(catalogue.status)) {
-          processCatalogue(id).catch((err) => {
-            console.error("Resume processing error:", err);
-          });
+          return enqueueProcessing(id, "Catalogue resumed");
         }
         return NextResponse.json({ success: true, message: "Catalogue resumed" });
 
@@ -73,6 +120,8 @@ export async function POST(
           where: { id },
           data: { status: "CANCELLED", paused: false },
         });
+        // Visibility-changing: the catalogue drops out of public listings.
+        revalidateSite();
         return NextResponse.json({ success: true, message: "Catalogue cancelled" });
 
       case "remove":
@@ -116,16 +165,12 @@ export async function POST(
             errorMessage: null,
           },
         });
-        processCatalogue(id).catch((err) => {
-          console.error("Reset processing error:", err);
-        });
-        return NextResponse.json({ success: true, message: "Catalogue reset" });
+        // Visibility-changing: the catalogue drops out of public listings.
+        revalidateSite();
+        return enqueueProcessing(id, "Catalogue reset");
 
       case "start":
-        processCatalogue(id).catch((err) => {
-          console.error("Start processing error:", err);
-        });
-        return NextResponse.json({ success: true, message: "Processing started" });
+        return enqueueProcessing(id, "Processing started");
 
       default:
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });

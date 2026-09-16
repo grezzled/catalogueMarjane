@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { articleTypeLabel } from "@/lib/article-types";
 
 interface ArticleDetail {
   id: string;
@@ -16,6 +17,8 @@ interface ArticleDetail {
   secondaryKeywords: string | null;
   searchIntent: string | null;
   category: string | null;
+  articleType: string;
+  articleFocus: string | null;
   status: string;
   seoScore: number | null;
   contentQualityScore: number | null;
@@ -211,6 +214,7 @@ function getStatusColor(status: string) {
     REVIEW: "bg-orange-100 text-orange-800",
     APPROVED: "bg-green-100 text-green-800",
     PUBLISHED: "bg-green-100 text-green-800",
+    EXPIRED: "bg-gray-200 text-gray-500",
     REJECTED: "bg-red-100 text-red-800",
   };
   return colors[status] || "bg-gray-100 text-gray-800";
@@ -247,6 +251,50 @@ export default function ArticleDetailPage() {
   const [editForm, setEditForm] = useState<EditFormData | null>(null);
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<"write" | "preview">("write");
+  const [scoring, setScoring] = useState(false);
+
+  interface ScoreCheck {
+    key: string;
+    label: string;
+    maxPoints: number;
+    points: number;
+    status: "pass" | "warn" | "fail";
+    detail: string;
+  }
+
+  function getScorecard(): { score: number; checks: ScoreCheck[] } | null {
+    try {
+      const raw = article?.seoAnalysis?.analysis;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { deterministic?: { score: number; checks: ScoreCheck[] } };
+      if (!parsed.deterministic || typeof parsed.deterministic.score !== "number") return null;
+      return parsed.deterministic;
+    } catch {
+      return null;
+    }
+  }
+
+  async function handleRescore() {
+    setScoring(true);
+    try {
+      const res = await fetch(`/api/articles/${id}/score`, { method: "POST" });
+      if (res.ok) {
+        const articleRes = await fetch(`/api/articles/${id}`);
+        if (articleRes.ok) {
+          const fresh = await articleRes.json();
+          if (!fresh.error) setArticle(fresh);
+        }
+        setToast({ type: "success", message: "SEO score recalculated" });
+      } else {
+        setToast({ type: "error", message: "Rescore failed" });
+      }
+    } catch {
+      setToast({ type: "error", message: "Rescore failed" });
+    } finally {
+      setScoring(false);
+      setTimeout(() => setToast(null), 3000);
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/articles/${id}`)
@@ -363,9 +411,45 @@ export default function ArticleDetailPage() {
     if (!article?.catalogue?.id) return;
     setRewriting(true);
     try {
-      const res = await fetch(`/api/catalogues/${article.catalogue.id}/generate-article`, { method: "POST" });
-      if (res.ok) {
+      // Rewrite preserves the article's intent (type + focus category).
+      const res = await fetch(`/api/catalogues/${article.catalogue.id}/generate-article`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          articleType: article.articleType ?? "overview",
+          ...(article.articleFocus ? { category: article.articleFocus } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.jobId) {
+        setToast({ type: "success", message: "Rewrite queued — worker will pick it up" });
+        // Poll the job; refresh the article when the new version lands.
+        for (let attempt = 0; attempt < 200; attempt++) {
+          await new Promise((r) => setTimeout(r, 3000));
+          try {
+            const jobRes = await fetch(`/api/jobs/${data.jobId}`);
+            if (!jobRes.ok) continue;
+            const job = await jobRes.json();
+            if (job.status === "COMPLETED" || job.status === "FAILED") {
+              const articleRes = await fetch(`/api/articles/${id}`);
+              if (articleRes.ok) {
+                const fresh = await articleRes.json();
+                if (!fresh.error) setArticle(fresh);
+              }
+              setToast({
+                type: job.status === "COMPLETED" ? "success" : "error",
+                message: job.status === "COMPLETED" ? "Rewrite complete" : `Rewrite failed: ${job.error || "unknown error"}`,
+              });
+              break;
+            }
+          } catch {
+            // keep polling
+          }
+        }
+      } else if (res.ok) {
         setToast({ type: "success", message: "Rewrite started" });
+      } else {
+        setToast({ type: "error", message: data?.error || "Rewrite failed" });
       }
     } catch {
       setToast({ type: "error", message: "Rewrite failed" });
@@ -394,6 +478,7 @@ export default function ArticleDetailPage() {
   if (!article) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Article not found</div>;
 
   const renderedContent = renderMarkdown(editing ? editForm?.content || "" : article.content);
+  const scorecard = getScorecard();
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -410,6 +495,10 @@ export default function ArticleDetailPage() {
             <h1 className="text-3xl font-bold text-gray-900 mt-2">{editing ? editForm?.title || article.title : article.title}</h1>
           </div>
           <div className="flex items-center gap-3">
+            <span className="inline-flex px-3 py-1 text-sm font-medium rounded-full bg-indigo-50 text-indigo-700">
+              {articleTypeLabel(article.articleType)}
+              {article.articleFocus ? ` — ${article.articleFocus}` : ""}
+            </span>
             <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(editing ? editForm?.status || article.status : article.status)}`}>
               {editing ? editForm?.status || article.status : article.status}
             </span>
@@ -448,6 +537,7 @@ export default function ArticleDetailPage() {
                     <option value="REVIEW">Review</option>
                     <option value="APPROVED">Approved</option>
                     <option value="PUBLISHED">Published</option>
+                    <option value="EXPIRED">Expired</option>
                     <option value="REJECTED">Rejected</option>
                   </select>
                 </div>
@@ -535,6 +625,9 @@ export default function ArticleDetailPage() {
                   {article.status === "APPROVED" && (
                     <button onClick={() => handleAction("publish")} disabled={actionLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium">Publish</button>
                   )}
+                  {article.status === "EXPIRED" && (
+                    <button onClick={() => handleAction("publish")} disabled={actionLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium" title="Republish an expired article">Republish</button>
+                  )}
                   {article.status === "PUBLISHED" && (
                     <>
                       <Link href={`/articles/${article.slug}`} target="_blank" className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">View Live</Link>
@@ -552,6 +645,60 @@ export default function ArticleDetailPage() {
             </div>
 
             <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-gray-900">
+                    SEO Checklist
+                    {scorecard && (
+                      <span className="ml-2 text-sm font-medium text-gray-500">
+                        {scorecard.score}/100 deterministic
+                      </span>
+                    )}
+                  </h2>
+                  <button
+                    onClick={handleRescore}
+                    disabled={scoring}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {scoring ? "Scoring..." : "Rescore"}
+                  </button>
+                </div>
+                {!scorecard && (
+                  <p className="text-sm text-gray-500">
+                    No deterministic score yet — generate or rescore to compute it.
+                  </p>
+                )}
+                {scorecard && (
+                  <div className="space-y-2">
+                    {scorecard.checks.map((c) => (
+                      <div key={c.key} className="flex items-start gap-2 text-sm">
+                        <span
+                          className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                            c.status === "pass"
+                              ? "bg-green-100 text-green-700"
+                              : c.status === "warn"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-red-100 text-red-700"
+                          }`}
+                          title={c.status}
+                        >
+                          {c.status === "pass" ? "✓" : c.status === "warn" ? "!" : "✗"}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="font-medium text-gray-900">{c.label}</span>
+                            <span className="shrink-0 tabular-nums text-gray-500">
+                              {c.points}/{c.maxPoints}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500">{c.detail}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">SEO Scores</h2>
                 <div className="space-y-4">
