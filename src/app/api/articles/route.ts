@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { adminGuard } from "@/lib/require-admin";
 
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const articles = await prisma.article.findMany({
       orderBy: { createdAt: "desc" },

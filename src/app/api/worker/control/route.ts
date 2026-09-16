@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { adminGuard } from "@/lib/require-admin";
 import {
   getWorkerStatus,
   pauseAllJobs,
@@ -30,6 +31,8 @@ const ACTIONS = [
  *   job clears its backoff so it runs ASAP.
  */
 export async function POST(request: NextRequest) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const body = await request.json().catch(() => ({}));
     const { action, jobId } = body as { action?: string; jobId?: string };

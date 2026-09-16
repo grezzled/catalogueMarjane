@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { adminGuard } from "@/lib/require-admin";
 import { computeFileHash } from "@/services/pdf";
 import { generateCatalogueSlug } from "@/lib/utils";
 import { writeFile, mkdir } from "fs/promises";
@@ -7,6 +8,8 @@ import path from "path";
 import { revalidateSite } from "@/lib/revalidate";
 
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const catalogues = await prisma.catalogue.findMany({
       orderBy: { createdAt: "desc" },
@@ -43,6 +46,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const formData = await request.formData();
     const file = formData.get("pdf") as File;

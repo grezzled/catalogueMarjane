@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { adminGuard } from "@/lib/require-admin";
 import { getArticleTypeOptions } from "@/lib/article-types";
 
-// Covered by the middleware matcher (/api/catalogues/:path*) — admin only.
+// Edge proxy + in-route guard — admin only.
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const { id } = await params;
 

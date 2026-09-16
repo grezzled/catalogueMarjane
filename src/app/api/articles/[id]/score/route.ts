@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { adminGuard } from "@/lib/require-admin";
 import { scoreArticle } from "@/services/seo-score";
 
 function parseFaq(raw: unknown): Array<{ question: string; answer: string }> {
@@ -24,6 +25,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const { id } = await params;
 

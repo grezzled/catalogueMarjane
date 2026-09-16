@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminGuard } from "@/lib/require-admin";
 import { revalidateArticle, revalidateCatalogue, revalidateSite } from "@/lib/revalidate";
 
 /**
  * On-demand revalidation, called by the admin when background jobs complete
  * (the worker itself cannot call revalidatePath outside a request scope).
- * Admin-only via middleware.
+ * Admin-only: edge proxy + in-route guard.
  */
 export async function POST(request: NextRequest) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const body = await request.json().catch(() => ({}));
     const { scope, slug } = body as { scope?: string; slug?: string };

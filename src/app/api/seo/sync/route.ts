@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminGuard } from "@/lib/require-admin";
 import { syncPerformance } from "@/services/seo-performance";
 
 export async function POST(request: NextRequest) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const body = await request.json().catch(() => ({}));
     const daysRaw = (body as { days?: unknown }).days;

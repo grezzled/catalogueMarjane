@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { adminGuard } from "@/lib/require-admin";
 import { revalidateSite } from "@/lib/revalidate";
 
 export const runtime = "nodejs";
@@ -29,6 +30,8 @@ function sanitizeDefaultLang(value: unknown): string | undefined {
 }
 
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   let settings = await prisma.oGSettings.findUnique({
     where: { id: "singleton" },
   });
@@ -43,6 +46,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   const body = await request.json();
   const coverPages = sanitizeCoverPages(body.coverPages);
   const defaultLang = sanitizeDefaultLang(body.defaultLang);

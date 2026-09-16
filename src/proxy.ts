@@ -53,9 +53,13 @@ async function verify(value: string): Promise<boolean> {
   }
 }
 
-const PUBLIC_PATHS = new Set(["/admin/login", "/api/admin/auth"]);
+const PUBLIC_PATHS = new Set([
+  "/admin/login",
+  "/api/admin/auth",
+  "/api/admin/logout",
+]);
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
@@ -79,6 +83,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/admin/:path*",
+    "/api/admin/:path*",
     "/api/catalogues",
     "/api/catalogues/:path*",
     "/api/articles",

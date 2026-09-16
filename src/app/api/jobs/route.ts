@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { adminGuard } from "@/lib/require-admin";
 import { createJob, getWorkerStatus, type JobType } from "@/services/jobs";
 
 // Maintenance operations allowed through the generic enqueue endpoint.
@@ -16,6 +17,8 @@ interface JobLog {
 
 /** Recent AI jobs feed for the admin worker terminal. */
 export async function GET(request: NextRequest) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const limit = Math.min(
       50,
@@ -80,6 +83,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const body = await request.json().catch(() => ({}));
     const { type, catalogueId, reanalyzeMissing, force } = body as {

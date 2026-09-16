@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { adminGuard } from "@/lib/require-admin";
 import { hasOriginals } from "@/services/originals";
 
 export async function GET() {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const stats = await Promise.all([
       prisma.catalogue.count(),

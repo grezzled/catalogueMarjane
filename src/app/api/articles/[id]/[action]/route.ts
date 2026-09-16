@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { adminGuard } from "@/lib/require-admin";
 import { revalidateArticle, revalidateSite } from "@/lib/revalidate";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; action: string }> }
 ) {
+  const denied = await adminGuard();
+  if (denied) return denied;
   try {
     const { id, action } = await params;
 

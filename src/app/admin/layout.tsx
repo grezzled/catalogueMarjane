@@ -1,13 +1,27 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import LogoutButton from "@/components/logout-button";
 import JobTerminal from "@/components/admin/job-terminal";
 import { prisma } from "@/lib/prisma";
+import { ADMIN_COOKIE_NAME, verifyAdminCookie } from "@/lib/admin-auth";
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const store = await cookies();
+  const isAdmin = verifyAdminCookie(store.get(ADMIN_COOKIE_NAME)?.value);
+
+  // The edge proxy redirects logged-out visitors to /admin/login, but the
+  // layout must not depend on it alone: never render the admin nav or the
+  // Workers terminal (queue controls + job feed) without a valid session.
+  // The login page itself renders through this layout, so logged-out
+  // visitors only see the login form.
+  if (!isAdmin) {
+    return <div>{children}</div>;
+  }
+
   let pendingComments = 0;
   try {
     pendingComments = await prisma.comment.count({ where: { status: "PENDING" } });
