@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FileText, LayoutGrid, Megaphone } from "lucide-react";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { articleTypeLabel } from "@/lib/article-types";
+import AlertSubscribe from "@/components/alert-subscribe";
 
 interface Article {
   id: string;
@@ -31,6 +32,7 @@ interface CatalogueSidebarProps {
 export default function CatalogueSidebar({ articles, categories, currentCategory }: CatalogueSidebarProps) {
   return (
     <div className="space-y-10">
+      <AlertSubscribe source="catalogue-sidebar" stacked />
       {articles.length > 0 && (
         <div>
           <div className="flex items-center gap-3 mb-6">
@@ -49,12 +51,12 @@ export default function CatalogueSidebar({ articles, categories, currentCategory
                 href={`/articles/${article.slug}`}
                 className="group block bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-lg transition-all"
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
                     {articleTypeLabel(article.articleType)}
                     {article.articleFocus ? ` — ${article.articleFocus}` : ""}
                   </span>
-                  <span className="text-[11px] font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                  <span className="text-[11px] font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
                     {article.primaryKeyword || "Conseil"}
                   </span>
                   {article.publishedAt && (

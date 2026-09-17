@@ -342,6 +342,11 @@ async function runWorker() {
           }
           const { urlCount } = await writeSitemapFile(prisma);
           console.log(`Sitemap refreshed (${urlCount} URLs)`);
+          // Page-view retention: keep 90 days of first-party analytics.
+          const pruned = await prisma.pageView.deleteMany({
+            where: { createdAt: { lt: new Date(Date.now() - 90 * 24 * 3600 * 1000) } },
+          });
+          if (pruned.count > 0) console.log(`Pruned ${pruned.count} old page view(s)`);
         } catch (error) {
           console.error("Article expiry check error:", error);
         }

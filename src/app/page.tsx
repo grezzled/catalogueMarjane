@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Eye } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDateRange } from "@/lib/utils";
 import { getCategoryIcon } from "@/lib/category-icons";
@@ -6,6 +7,9 @@ import { getActiveDeals } from "@/lib/deals";
 import { articleTypeLabel } from "@/lib/article-types";
 import { BreadcrumbListJsonLd } from "@/components/json-ld";
 import OfferCard from "@/app/promotions-marjane/offer-card";
+import ProductCard from "@/components/product-card";
+import { getMostFollowedProducts, getTrendingProducts } from "@/services/products";
+import RecentlyViewedLoader from "@/components/recently-viewed-loader";
 
 export const revalidate = 300;
 
@@ -205,6 +209,11 @@ export default async function HomePage() {
   // stay ungenerated so no thin page is ever linked.
   const activeDeals = await getActiveDeals();
 
+  // Most-viewed product pages this week (first-party beacon). Falls back
+  // to the richest price histories on fresh databases with no traffic yet.
+  const trending = await getTrendingProducts(7, 8);
+  const trendingFallback = trending.length === 0 ? await getMostFollowedProducts(4) : [];
+
   return (
     <div className="min-h-screen bg-gray-50">
       <BreadcrumbListJsonLd items={[{ name: "Accueil", url: "/" }]} />
@@ -364,14 +373,14 @@ export default async function HomePage() {
           if (showcase.length === 0) return null;
           return (
             <section className="mb-16">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-3 mb-8">
+                <div className="flex items-center gap-3 min-w-0">
                   <div className="bg-gray-100 rounded-lg p-2">
                     <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Catalogues récents</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Catalogues récents</h2>
                 </div>
-                <Link href="/catalogue-marjane" className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+                <Link href="/catalogue-marjane" className="shrink-0 whitespace-nowrap text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
                   Tout voir
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
                 </Link>
@@ -443,14 +452,14 @@ export default async function HomePage() {
 
         {topDiscountOffers.length > 0 && (
           <section className="mb-16">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3 mb-8">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="bg-gradient-to-br from-red-500 to-orange-500 rounded-lg p-2 shadow-lg shadow-red-200">
                   <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" /></svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Meilleures promotions</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Meilleures promotions</h2>
               </div>
-              <Link href="/promotions-marjane" className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+              <Link href="/promotions-marjane" className="shrink-0 whitespace-nowrap text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
                 Tout voir
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
               </Link>
@@ -465,14 +474,14 @@ export default async function HomePage() {
 
         {topSavingsOffers.length > 0 && (
           <section className="mb-16">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3 mb-8">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg p-2 shadow-lg shadow-green-200">
                   <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Meilleures réductions</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Meilleures réductions</h2>
               </div>
-              <Link href="/promotions-marjane" className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+              <Link href="/promotions-marjane" className="shrink-0 whitespace-nowrap text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
                 Tout voir
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
               </Link>
@@ -485,17 +494,74 @@ export default async function HomePage() {
           </section>
         )}
 
+        {trending.length > 0 && (
+          <section className="mb-16">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 mb-6 sm:mb-8">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg p-2 shadow-lg shadow-orange-200 shrink-0">
+                  <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" /></svg>
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Tendances de la semaine</h2>
+                  <p className="text-sm text-gray-500">Les produits les plus consultés ces 7 derniers jours</p>
+                </div>
+              </div>
+              <Link href="/produits" className="shrink-0 whitespace-nowrap self-start sm:self-auto text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+                Tous les produits
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 min-[560px]:grid-cols-2 md:grid-cols-4 gap-4">
+              {trending.slice(0, 4).map(({ product, views }) => (
+                <div key={product.id} className="relative">
+                  <span className="absolute -top-2 left-3 z-10 inline-flex items-center gap-1 bg-gray-900 text-white text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums">
+                    <Eye className="h-3 w-3" />
+                    {views} vue{views > 1 ? "s" : ""}
+                  </span>
+                  <ProductCard product={product} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {trending.length === 0 && trendingFallback.length > 0 && (
+          <section className="mb-16">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 mb-6 sm:mb-8">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg p-2 shadow-lg shadow-orange-200 shrink-0">
+                  <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z" /></svg>
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Tendances de la semaine</h2>
+                  <p className="text-sm text-gray-500">Les produits les plus suivis du moment</p>
+                </div>
+              </div>
+              <Link href="/produits" className="shrink-0 whitespace-nowrap self-start sm:self-auto text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+                Tous les produits
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 min-[560px]:grid-cols-2 md:grid-cols-4 gap-4">
+              {trendingFallback.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </section>
+        )}
+
+
+        <RecentlyViewedLoader />
 
         {activeDeals.length > 0 && (
           <section className="mb-16">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg p-2 shadow-lg shadow-purple-200">
-                  <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" /></svg>
+            <div className="flex items-center justify-between gap-3 mb-8">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg p-2 shadow-lg shadow-purple-200">                  <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" /></svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Bons plans</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Bons plans</h2>
               </div>
-              <Link href="/promotions-marjane" className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+              <Link href="/promotions-marjane" className="shrink-0 whitespace-nowrap text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
                 Toutes les promotions
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
               </Link>
@@ -534,7 +600,7 @@ export default async function HomePage() {
               <div className="bg-gray-100 rounded-lg p-2">
                 <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">Catégories</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Catégories</h2>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {categories.map((cat) => {
@@ -556,14 +622,14 @@ export default async function HomePage() {
 
         {recentArticles.length > 0 && (
           <section className="mb-16">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3 mb-8">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="bg-orange-100 rounded-lg p-2">
                   <svg className="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6z" /></svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Articles et conseils</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">Articles et conseils</h2>
               </div>
-              <Link href="/articles" className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+              <Link href="/articles" className="shrink-0 whitespace-nowrap text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
                 Tout voir
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
               </Link>
@@ -575,16 +641,16 @@ export default async function HomePage() {
                   href={`/articles/${article.slug}`}
                   className="group bg-white border border-gray-100 rounded-2xl p-5 hover:shadow-lg transition-all"
                 >
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
                       {articleTypeLabel(article.articleType)}
                       {article.articleFocus ? ` — ${article.articleFocus}` : ""}
                     </span>
-                    <span className="text-[11px] font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
                       {article.primaryKeyword || "Conseil"}
                     </span>
                     {article.publishedAt && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 whitespace-nowrap shrink-0">
                         {new Date(article.publishedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
                       </span>
                     )}

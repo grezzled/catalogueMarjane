@@ -134,6 +134,94 @@ export async function queryPerformance(days = 28): Promise<{ property: string; r
   return { property, rows };
 }
 
+export interface GscQueryRow {
+  page: string;
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+/** Top search queries, optionally filtered to one page (dimensions page+query). */
+export async function queryTopQueries(
+  days = 28,
+  pageUrl?: string,
+  limit = 20
+): Promise<{ property: string; rows: GscQueryRow[] }> {
+  const { property, searchconsole } = await getClient();
+  const end = new Date();
+  end.setDate(end.getDate() - 1); // GSC data lags ~1-2 days
+  const start = new Date(end);
+  start.setDate(start.getDate() - (days - 1));
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+  const res = await searchconsole.searchanalytics.query({
+    siteUrl: property,
+    requestBody: {
+      startDate: fmt(start),
+      endDate: fmt(end),
+      dimensions: ["page", "query"],
+      ...(pageUrl ? { dimensionFilterGroups: [{ filters: [{ dimension: "page", operator: "equals", expression: pageUrl }] }] } : {}),
+      rowLimit: Math.min(Math.max(limit, 1), 1000),
+    },
+  });
+  const rows: GscQueryRow[] = (res.data.rows ?? []).map((r) => ({
+    page: r.keys?.[0] ?? "",
+    query: r.keys?.[1] ?? "",
+    clicks: r.clicks ?? 0,
+    impressions: r.impressions ?? 0,
+    ctr: r.ctr ?? 0,
+    position: r.position ?? 0,
+  }));
+  rows.sort((a, b) => b.impressions - a.impressions);
+  return { property, rows };
+}
+
+export interface GscDayRow {
+  /** YYYY-MM-DD */
+  date: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+/** Per-day totals for the last `days` days, optionally for one page. */
+export async function queryDailyPerformance(
+  days = 28,
+  pageUrl?: string
+): Promise<{ property: string; days: GscDayRow[] }> {
+  const { property, searchconsole } = await getClient();
+  const end = new Date();
+  end.setDate(end.getDate() - 1); // GSC data lags ~1-2 days
+  const start = new Date(end);
+  start.setDate(start.getDate() - (days - 1));
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const usePage = !!pageUrl;
+
+  const res = await searchconsole.searchanalytics.query({
+    siteUrl: property,
+    requestBody: {
+      startDate: fmt(start),
+      endDate: fmt(end),
+      dimensions: usePage ? ["date", "page"] : ["date"],
+      ...(usePage
+        ? { dimensionFilterGroups: [{ filters: [{ dimension: "page", operator: "equals", expression: pageUrl as string }] }] }
+        : {}),
+      rowLimit: 1000,
+    },
+  });
+  const rows: GscDayRow[] = (res.data.rows ?? []).map((r) => ({
+    date: r.keys?.[0] ?? "",
+    clicks: r.clicks ?? 0,
+    impressions: r.impressions ?? 0,
+    ctr: r.ctr ?? 0,
+    position: r.position ?? 0,
+  }));
+  rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  return { property, days: rows };
+}
+
 /** On-demand URL Inspection (quota-limited: ~2000/day). */
 export async function inspectUrl(url: string): Promise<GscInspectResult> {
   const { property, searchconsole } = await getClient();

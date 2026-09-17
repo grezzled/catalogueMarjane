@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 export const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "👏", "🔥", "👎"] as const;
 
-export type CommentTarget = "catalogue" | "article";
+export type CommentTarget = "catalogue" | "article" | "product";
 
 // In-memory throttle: 10 comments / 15 min per IP.
 const WINDOW_MS = 15 * 60 * 1000;
@@ -30,7 +30,13 @@ function clientIp(request: Request): string {
 }
 
 function isTarget(value: unknown): value is CommentTarget {
-  return value === "catalogue" || value === "article";
+  return value === "catalogue" || value === "article" || value === "product";
+}
+
+function targetWhere(target: CommentTarget, id: string): Record<string, string> {
+  if (target === "catalogue") return { catalogueId: id };
+  if (target === "article") return { articleId: id };
+  return { productId: id };
 }
 
 async function targetExists(target: CommentTarget, id: string): Promise<boolean> {
@@ -38,7 +44,11 @@ async function targetExists(target: CommentTarget, id: string): Promise<boolean>
     const row = await prisma.catalogue.findUnique({ where: { id }, select: { id: true } });
     return !!row;
   }
-  const row = await prisma.article.findUnique({ where: { id }, select: { id: true } });
+  if (target === "article") {
+    const row = await prisma.article.findUnique({ where: { id }, select: { id: true } });
+    return !!row;
+  }
+  const row = await prisma.product.findUnique({ where: { id }, select: { id: true } });
   return !!row;
 }
 
@@ -63,7 +73,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Contenu introuvable." }, { status: 404 });
   }
 
-  const where = target === "catalogue" ? { catalogueId: targetId } : { articleId: targetId };
+  const where = targetWhere(target, targetId);
   const [rows, votes] = await Promise.all([
     prisma.comment.findMany({
       where: { ...where, status: "PUBLISHED" },
@@ -157,7 +167,7 @@ export async function POST(request: Request) {
       where: {
         id: parentId,
         status: "PUBLISHED",
-        ...(target === "catalogue" ? { catalogueId: targetId } : { articleId: targetId }),
+        ...targetWhere(target, targetId),
       },
       select: { id: true, parentId: true },
     });
@@ -172,6 +182,7 @@ export async function POST(request: Request) {
         targetType: target,
         catalogueId: target === "catalogue" ? targetId : null,
         articleId: target === "article" ? targetId : null,
+        productId: target === "product" ? targetId : null,
         parentId: parent ? parent.id : null,
         author: name,
         content: text,

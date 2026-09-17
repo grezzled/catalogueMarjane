@@ -6,13 +6,15 @@ import { WHATSAPP_CHANNEL_URL } from "@/lib/links";
 
 interface Props {
   source?: string;
+  /** Single-column layout for narrow placements (sidebars). */
+  stacked?: boolean;
 }
 
 /**
  * Promo alerts: WhatsApp channel follow + email recap signup.
  * Self-contained; drop it anywhere (offer modal, homepage, articles).
  */
-export default function AlertSubscribe({ source = "offer-modal" }: Props) {
+export default function AlertSubscribe({ source = "offer-modal", stacked = false }: Props) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -42,13 +44,13 @@ export default function AlertSubscribe({ source = "offer-modal" }: Props) {
   }
 
   return (
-    <div className="mt-5 rounded-2xl border border-green-100 bg-green-50/60 p-4">
+    <div className="rounded-2xl border border-green-100 bg-green-50/60 p-4">
       <p className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
         <BellRing className="h-4 w-4 text-green-600" />
         Alertes promos comme celle-ci
       </p>
 
-      <div className="mt-3 grid sm:grid-cols-2 gap-3">
+      <div className={`mt-3 grid gap-3 ${stacked ? "grid-cols-1" : "sm:grid-cols-2"}`}>
         <div className="rounded-xl bg-white border border-green-100 p-3">
           <p className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
             <MessageCircle className="h-3.5 w-3.5 text-green-600" />

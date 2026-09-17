@@ -7,6 +7,7 @@ import CatalogueSidebar from "@/components/catalogue-sidebar";
 import CataloguePageExplorer from "@/components/catalogue-page-explorer";
 import CatalogueOffersTable from "@/components/catalogue-offers-table";
 import CommentsSection from "@/components/comments-section";
+import { CommentCta } from "@/components/comments-section";
 import TopOffersSection from "@/components/top-offers-section";
 import { BreadcrumbListJsonLd } from "@/components/json-ld";
 import { ChevronRight, FileText, Tag, LayoutGrid } from "lucide-react";
@@ -371,6 +372,7 @@ export default async function CatalogueDetailPage({ params }: Props) {
                   <LayoutGrid className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
                   {allCategories.length} catégories
                 </span>
+                <CommentCta compact target="catalogue" targetId={catalogue.id} prompt="Avez-vous profité de ce catalogue ?" />
               </div>
             </div>
           </div>

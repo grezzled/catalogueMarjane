@@ -349,10 +349,26 @@ function numericTokens(coreTokens: string[]): string[] {
 }
 
 /**
+ * Hard identity signals: manufacturer ref, pack/size, variant.
+ * Brand and bare core words are NOT enough on their own — generic names
+ * ("Jogging col rond", "Trousse") with no such signal must never merge
+ * across extractions, or distinct items collapse into one product page.
+ */
+export function hasStrongSignals(
+  id: Pick<ProductIdentity, "modelNumber" | "size" | "variant">
+): boolean {
+  return id.modelNumber != null || id.size != null || id.variant != null;
+}
+
+/**
  * Do these two identities describe the same physical product?
  * Tier "model" (brand + manufacturer ref, size-compatible) wins over
  * tier "key" (full normalized identity, with numeric reconciliation),
  * which wins over the legacy exact-name fallback (checked by callers).
+ *
+ * Precision-first: bare-core keys (no model/size/variant on either side)
+ * never match — the same generic name on two pages/prices is far more
+ * likely two distinct items than one item seen twice.
  */
 export function matchIdentity(a: ProductIdentity, b: MatchCandidate): MatchTier {
   const bBrand = normalizeBrandKey(b.brand);
@@ -379,9 +395,13 @@ export function matchIdentity(a: ProductIdentity, b: MatchCandidate): MatchTier 
   // Tier 2 — full normalized identity. Signal-less keys never match: an
   // empty core with no model/size/variant is extraction junk ("• kg à",
   // prices parsed as names) and any junk would otherwise merge with junk.
+  // Same for bare-core keys: "Jogging col rond" (no model/size/variant)
+  // on two pages is two joggings, not one — keys are equal since the
+  // tokens are equal, so strength is checked explicitly on both sides.
   const hasSignal =
     a.coreName !== "" || a.modelNumber != null || a.size != null || a.variant != null;
-  if (b.identityKey && hasSignal && a.identityKey === b.identityKey) return "key";
+  const bStrong = b.modelNumber != null || b.size != null || b.variant != null;
+  if (b.identityKey && hasSignal && hasStrongSignals(a) && bStrong && a.identityKey === b.identityKey) return "key";
 
   // Tier 2b — same core modulo bare numbers, with the size digits bridging
   // the gap ("Samsung 55 TV" vs "TV Samsung 55 pouces"). Strict everywhere

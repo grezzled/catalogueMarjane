@@ -45,9 +45,6 @@ body {
       animation: none !important;
     }
   }
-
-  /* Radix dialog transitions — animate opacity + `translate` (independent
-     CSS property) so they compose with Tailwind transforms, never fight. */
   @keyframes dialog-overlay-show {
     from {
       opacity: 0;
@@ -86,5 +83,20 @@ body {
     .dialog-content[data-state="open"] {
       animation: dialog-pop-show 0.22s ease-out;
     }
+  }
+}
+
+/* Shopping list printing: strips nav, footer and every interactive
+   control (marked .no-print), leaving a clean checkable list. */
+@media print {
+  nav,
+  footer {
+    display: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
   }
 }

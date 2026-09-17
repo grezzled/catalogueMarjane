@@ -10,6 +10,7 @@
 import { prisma } from "@/lib/prisma";
 import {
   buildIdentity,
+  hasStrongSignals,
   legacyMatches,
   matchIdentity,
   normalizeBrandKey,
@@ -127,7 +128,7 @@ export async function findMatchingProduct(incoming: IncomingProduct): Promise<Ma
       bestRank = rank;
       if (rank === 0) break;
     }
-    if (!tier && bestRank > 2 && legacyMatches(incoming.name, c.normalizedName)) {
+    if (!tier && bestRank > 2 && hasStrongSignals(identity) && legacyMatches(incoming.name, c.normalizedName)) {
       best = c;
       bestTier = "legacy";
       bestRank = 2;

@@ -17,6 +17,7 @@ interface AdminComment {
   parent: { author: string } | null;
   catalogue: { id: string; title: string; slug: string } | null;
   article: { id: string; title: string; slug: string } | null;
+  product: { id: string; name: string; slug: string | null } | null;
   votes: number;
   replyCount: number;
 }
@@ -89,6 +90,9 @@ export default function AdminCommentsPage() {
     }
     if (c.targetType === "article" && c.article) {
       return { href: `/articles/${c.article.slug}`, label: c.article.title };
+    }
+    if (c.targetType === "product" && c.product) {
+      return { href: `/produit/${c.product.slug ?? c.product.id}`, label: c.product.name };
     }
     return null;
   }

@@ -40,6 +40,7 @@ export async function GET(request: Request) {
         parent: { select: { author: true } },
         catalogue: { select: { id: true, title: true, slug: true } },
         article: { select: { id: true, title: true, slug: true } },
+        product: { select: { id: true, name: true, slug: true } },
         _count: { select: { votes: true, replies: true } },
       },
     }),

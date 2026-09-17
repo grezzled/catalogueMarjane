@@ -5,6 +5,7 @@ import { imageToBase64 } from "@/services/pdf";
 import { cropProductImage } from "@/services/cropping";
 import { detectCategory, detectBrand } from "@/services/categories";
 import { findMatchingProduct } from "@/services/product-match";
+import { assignProductSlug } from "@/services/products";
 import { extractJsonFromAIResponse } from "@/lib/utils";
 import type { PageAnalysis } from "@/types";
 import { dirname } from "path";
@@ -193,6 +194,12 @@ export async function analyzePageFull(
             specifications: JSON.stringify(product.features),
           },
         });
+
+    // Stable public URL: slug set once at creation (never renamed on enrich).
+    if (!match && !dbProduct.slug) {
+      const slug = await assignProductSlug(dbProduct.id, dbProduct.name);
+      dbProduct = { ...dbProduct, slug };
+    }
 
     if (match && enrich) {
       await prisma.product.update({ where: { id: dbProduct.id }, data: enrich });

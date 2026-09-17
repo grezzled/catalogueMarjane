@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { articleTypeLabel } from "@/lib/article-types";
 import { BreadcrumbListJsonLd } from "@/components/json-ld";
 import CommentsSection from "@/components/comments-section";
+import { CommentCta } from "@/components/comments-section";
 import type { Metadata } from "next";
 
 export const revalidate = 3600;
@@ -392,6 +393,9 @@ export default async function ArticlePage({ params }: Props) {
               ))}
             </div>
           )}
+          <div className="mt-5">
+            <CommentCta target="article" targetId={article.id} prompt="Réagissez à cet article" />
+          </div>
         </div>
       </header>
 

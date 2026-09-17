@@ -46,6 +46,7 @@ export async function buildSitemapUrls(
     { loc: baseUrl, lastmod: now.toISOString(), changefreq: "daily", priority: 1 },
     { loc: `${baseUrl}/catalogue-marjane`, lastmod: now.toISOString(), changefreq: "daily", priority: 0.9 },
     { loc: `${baseUrl}/promotions-marjane`, lastmod: now.toISOString(), changefreq: "daily", priority: 0.9 },
+    { loc: `${baseUrl}/produits`, lastmod: now.toISOString(), changefreq: "daily", priority: 0.9 },
     { loc: `${baseUrl}/articles`, lastmod: now.toISOString(), changefreq: "weekly", priority: 0.7 },
     { loc: `${baseUrl}/a-propos`, lastmod: now.toISOString(), changefreq: "monthly", priority: 0.5 },
     { loc: `${baseUrl}/conditions-utilisation`, lastmod: now.toISOString(), changefreq: "yearly", priority: 0.3 },
@@ -106,6 +107,22 @@ export async function buildSitemapUrls(
       lastmod: toIso(article.updatedAt),
       changefreq: "weekly",
       priority: 0.7,
+    });
+  }
+
+  // Product pages with at least one published offer (price history).
+  // Single-offer products still qualify: the page is a valid offer landing.
+  const products = await prisma.product.findMany({
+    where: { offers: { some: { catalogue: { status: "PUBLISHED" } } } },
+    select: { slug: true, updatedAt: true },
+  });
+  for (const product of products) {
+    if (!product.slug) continue;
+    urls.push({
+      loc: `${baseUrl}/produit/${product.slug}`,
+      lastmod: toIso(product.updatedAt),
+      changefreq: "weekly",
+      priority: 0.6,
     });
   }
 

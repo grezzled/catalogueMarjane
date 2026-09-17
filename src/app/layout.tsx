@@ -1,6 +1,9 @@
 import "./globals.css";
 import Link from "next/link";
 import Navbar from "@/components/navbar";
+import BottomNav from "@/components/bottom-nav";
+import WhatsAppFloat from "@/components/whatsapp-float";
+import PageviewTracker from "@/components/pageview-tracker";
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://cataloguemarjane.com"),
@@ -42,6 +45,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="antialiased">
+        <PageviewTracker />
         <Navbar />
         <main>{children}</main>
         <footer className="bg-gray-900 text-gray-400 mt-16">
@@ -136,6 +140,8 @@ export default function RootLayout({
             </div>
           </div>
         </footer>
+        <BottomNav />
+        <WhatsAppFloat />
       </body>
     </html>
   );

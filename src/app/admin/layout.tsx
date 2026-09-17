@@ -23,10 +23,14 @@ export default async function AdminLayout({
   }
 
   let pendingComments = 0;
+  let pendingReviews = 0;
   try {
-    pendingComments = await prisma.comment.count({ where: { status: "PENDING" } });
+    [pendingComments, pendingReviews] = await Promise.all([
+      prisma.comment.count({ where: { status: "PENDING" } }),
+      prisma.review.count({ where: { status: "PENDING" } }),
+    ]);
   } catch {
-    // comments table may predate migration — badge simply stays hidden
+    // tables may predate migration — badges simply stay hidden
   }
   return (
     <div>
@@ -49,6 +53,14 @@ export default async function AdminLayout({
             {pendingComments > 0 && (
               <span className="bg-amber-400 text-amber-950 text-[11px] font-bold rounded-full px-1.5 py-0.5 tabular-nums">
                 {pendingComments}
+              </span>
+            )}
+          </Link>
+          <Link href="/admin/reviews" className="hover:text-gray-300 inline-flex items-center gap-1.5">
+            Avis
+            {pendingReviews > 0 && (
+              <span className="bg-amber-400 text-amber-950 text-[11px] font-bold rounded-full px-1.5 py-0.5 tabular-nums">
+                {pendingReviews}
               </span>
             )}
           </Link>

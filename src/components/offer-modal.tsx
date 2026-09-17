@@ -1,7 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Package, Tag, CreditCard, ShieldCheck, Check, Share2 } from "lucide-react";
+import Link from "next/link";
+import { X, Package, Tag, CreditCard, ShieldCheck, Check, Share2, History } from "lucide-react";
+import { AddToListButton } from "@/components/list-buttons";
 import { Dialog, DialogTrigger, DialogClose, DialogContent, DialogBody } from "@/components/ui/dialog";
 import AlertSubscribe from "@/components/alert-subscribe";
 
@@ -16,6 +18,8 @@ function toImageUrl(imagePath: string | null): string | null {
 
 export interface OfferModalOffer {
   id: string;
+  /** Product id when the caller has it (deep link fallback). */
+  productId?: string;
   originalPrice: number | null;
   salePrice: number | null;
   discountPercentage: number | null;
@@ -34,6 +38,9 @@ export interface OfferModalOffer {
     subcategory: string | null;
     specifications: string | null;
     imageUrl: string | null;
+    /** Present at runtime whenever the query selects the full product. */
+    id?: string;
+    slug?: string | null;
   };
   catalogue?: {
     slug: string;
@@ -60,6 +67,49 @@ interface OfferModalProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
+}
+
+// Web Share sheet only makes sense on phones: desktop browsers
+// increasingly expose navigator.share (OS share menu), where users
+// expect a simple link copy instead.
+function canNativeShare(): boolean {
+  if (typeof navigator === "undefined" || typeof window === "undefined") return false;
+  const nav = navigator as Navigator & {
+    share?: (data: ShareData) => Promise<void>;
+    userAgentData?: { mobile?: boolean };
+  };
+  if (typeof nav.share !== "function") return false;
+  if (nav.userAgentData && typeof nav.userAgentData.mobile === "boolean") {
+    return nav.userAgentData.mobile;
+  }
+  if (/android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)) return true;
+  // Touch-only small screens (phones/tablets). Touchscreen laptops fall
+  // through to copy — pointer: fine is the tiebreaker.
+  if (
+    window.matchMedia?.("(pointer: coarse)").matches &&
+    !window.matchMedia?.("(pointer: fine)").matches &&
+    Math.min(window.screen.width, window.screen.height) < 820
+  ) {
+    return true;
+  }
+  return false;
+}
+
+async function copyText(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch {
+    // Clipboard API needs a secure context — legacy fallback.
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  document.body.removeChild(ta);
 }
 
 function prettifyKey(key: string): string {
@@ -147,14 +197,17 @@ export default function OfferModal({
     const price = current.salePrice != null ? ` — ${current.salePrice.toLocaleString()} DH` : "";
     const text = `${current.product.name}${price}`;
     try {
-      const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
-      if (typeof nav.share === "function") {
-        await nav.share({ title: current.product.name, text, url });
-      } else {
-        await navigator.clipboard.writeText(`${text} ${url}`.trim());
-        setShared(true);
-        setTimeout(() => setShared(false), 2000);
+      // Phone → native share sheet. Desktop/browser → copy link
+      // (navigator.share exists on some desktops, so UA/capability
+      // detection decides — not feature presence alone).
+      if (canNativeShare()) {
+        const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
+        await nav.share?.({ title: current.product.name, text, url });
+        return;
       }
+      await copyText(`${text} ${url}`.trim());
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
     } catch {
       // user dismissed the share sheet — nothing to do
     }
@@ -265,6 +318,21 @@ export default function OfferModal({
                   )}
                 </div>
 
+                {(current.product.slug ?? current.product.id ?? current.productId) && (
+                  <div className="mt-3 flex gap-2">
+                    <Link
+                      href={`/produit/${current.product.slug ?? current.product.id ?? current.productId}`}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-bold text-white hover:bg-gray-700 transition-colors"
+                    >
+                      <History className="h-4 w-4" />
+                      Fiche produit · Historique des prix
+                    </Link>
+                    <span className="inline-flex items-center rounded-xl border border-gray-200 px-2">
+                      <AddToListButton compact slug={current.product.slug ?? current.product.id ?? current.productId ?? ""} />
+                    </span>
+                  </div>
+                )}
+
                 {/* Fact grid — missing info shows "—" instead of hiding the row */}
                 <dl className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 border-y border-gray-100 py-4">
                   <div>
@@ -372,7 +440,9 @@ export default function OfferModal({
                   </div>
                 )}
 
-                <AlertSubscribe source={variant === "sheet" ? "offer-sheet" : "offer-dialog"} />
+                <div className="mt-5">
+                  <AlertSubscribe source={variant === "sheet" ? "offer-sheet" : "offer-dialog"} />
+                </div>
 
                 {siblings.length > 0 && (
                   <div className="mt-6">

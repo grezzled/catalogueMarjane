@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageCircle, Reply, Send } from "lucide-react";
 
-export type CommentTarget = "catalogue" | "article";
+export type CommentTarget = "catalogue" | "article" | "product";
 
 interface CommentNode {
   id: string;
@@ -181,8 +181,7 @@ function Composer({
   );
 }
 
-export default function CommentsSection({ target, targetId }: Props) {
-  const [comments, setComments] = useState<CommentNode[]>([]);
+export default function CommentsSection({ target, targetId }: Props) {  const [comments, setComments] = useState<CommentNode[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -372,7 +371,7 @@ export default function CommentsSection({ target, targetId }: Props) {
   }
 
   return (
-    <section className="mb-14" aria-label="Commentaires">
+    <section id="commentaires" className="mb-14 scroll-mt-24" aria-label="Commentaires">
       <div className="flex items-center gap-3 mb-6">
         <div className="bg-gradient-to-br from-rose-500 to-pink-400 rounded-xl p-2.5 shadow-lg shadow-rose-200">
           <MessageCircle className="h-6 w-6 text-white" />
@@ -435,5 +434,83 @@ export default function CommentsSection({ target, targetId }: Props) {
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Entry-point button placed near the top of catalogue / article / product
+ * pages: shows the live comment count, smooth-scrolls to #commentaires
+ * and focuses the composer so posting is one click away.
+ */
+export function CommentCta({
+  target,
+  targetId,
+  prompt = "Donnez votre avis",
+  compact = false,
+}: {
+  target: CommentTarget;
+  targetId: string;
+  prompt?: string;
+  /** Icon + count only — for tight placements like page headers. */
+  compact?: boolean;
+}) {
+  const [total, setTotal] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/comments?target=${target}&id=${encodeURIComponent(targetId)}`)
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.ok) {
+          setTotal(0);
+          return;
+        }
+        const data = (await res.json().catch(() => null)) as { total?: number } | null;
+        setTotal(typeof data?.total === "number" ? data.total : 0);
+      })
+      .catch(() => {
+        if (!cancelled) setTotal(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [target, targetId]);
+
+  function go() {
+    document.getElementById("commentaires")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Focus the composer once the scroll lands.
+    window.setTimeout(() => {
+      const area = document.querySelector<HTMLTextAreaElement>("#commentaires textarea");
+      area?.focus({ preventScroll: true });
+    }, 650);
+  }
+
+  const fullLabel =
+    total == null ? prompt : total === 0 ? `${prompt} — soyez le premier !` : `${total} avis · ${prompt.toLowerCase()}`;
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={go}
+        title={fullLabel}
+        aria-label={fullLabel}
+        className="inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm px-3 py-1.5 text-xs font-bold text-white hover:bg-white/25 transition-colors"
+      >
+        <MessageCircle className="h-3.5 w-3.5" />
+        {total != null && total > 0 ? <span className="tabular-nums">{total}</span> : <span>Avis</span>}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={go}
+      className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:border-blue-300 hover:text-blue-700 hover:shadow transition-all"
+    >
+      <MessageCircle className="h-4 w-4" />
+      {fullLabel}
+    </button>
   );
 }

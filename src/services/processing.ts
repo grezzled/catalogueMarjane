@@ -8,6 +8,7 @@ import {
   detectBrand,
 } from "@/services/categories";
 import { findMatchingProduct } from "@/services/product-match";
+import { assignProductSlug } from "@/services/products";
 import { extractJsonFromAIResponse } from "@/lib/utils";
 import type { PageAnalysis } from "@/types";
 
@@ -165,6 +166,12 @@ export async function processCatalogue(
                 specifications: JSON.stringify(product.features),
               },
             });
+
+    // Stable public URL: slug set once at creation (never renamed on enrich).
+    if (!match && !dbProduct.slug) {
+      const slug = await assignProductSlug(dbProduct.id, dbProduct.name);
+      dbProduct = { ...dbProduct, slug };
+    }
 
         // Converge stored rows toward complete identities.
         if (match && enrich) {
