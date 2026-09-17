@@ -514,10 +514,12 @@ export default async function HomePage() {
             <div className="grid grid-cols-1 min-[560px]:grid-cols-2 md:grid-cols-4 gap-4">
               {trending.slice(0, 4).map(({ product, views }) => (
                 <div key={product.id} className="relative">
-                  <span className="absolute -top-2 left-3 z-10 inline-flex items-center gap-1 bg-gray-900 text-white text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums">
-                    <Eye className="h-3 w-3" />
-                    {views} vue{views > 1 ? "s" : ""}
-                  </span>
+                  {views >= 1000 && (
+                    <span className="absolute -top-2 left-3 z-10 inline-flex items-center gap-1 bg-gray-900 text-white text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums">
+                      <Eye className="h-3 w-3" />
+                      {(views / 1000).toFixed(views >= 10000 ? 0 : 1).replace(".", ",")} k vues
+                    </span>
+                  )}
                   <ProductCard product={product} />
                 </div>
               ))}
