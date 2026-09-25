@@ -49,7 +49,18 @@ export async function POST(request: NextRequest) {
   const denied = await adminGuard();
   if (denied) return denied;
   try {
-    const formData = await request.formData();
+    let formData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return NextResponse.json(
+        {
+          error:
+            "Upload too large or unreadable — proxy body limit may be exceeded (see proxyClientMaxBodySize, max ~60MB)",
+        },
+        { status: 413 }
+      );
+    }
     const file = formData.get("pdf") as File;
     const title = formData.get("title") as string;
     const store = (formData.get("store") as string) || "marjane";
@@ -64,6 +75,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
+      );
+    }
+
+    const maxMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 50);
+    if (file.size > maxMb * 1024 * 1024) {
+      return NextResponse.json(
+        { error: `PDF exceeds ${maxMb}MB limit (${(file.size / 1024 / 1024).toFixed(1)}MB)` },
+        { status: 413 }
       );
     }
 

@@ -1,5 +1,6 @@
 import "./globals.css";
 import Link from "next/link";
+import Script from "next/script";
 import Navbar from "@/components/navbar";
 import BottomNav from "@/components/bottom-nav";
 import WhatsAppFloat from "@/components/whatsapp-float";
@@ -44,6 +45,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
+      <head>
+        {/* Google tag (gtag.js) — G-P9QXX1D00E, loads on every page */}
+        <Script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-P9QXX1D00E"
+        />
+        <Script id="gtag-init">
+          {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-P9QXX1D00E');`}
+        </Script>
+      </head>
       <body className="antialiased">
         <PageviewTracker />
         <Navbar />
