@@ -91,6 +91,13 @@ export default async function ProductDetailPage({ params }: Props) {
   // Deep link to the exact catalogue page (viewer opens on it via #page-N).
   const pageUrl = (o: { catalogueSlug: string; pageNumber: number | null }) =>
     o.pageNumber != null ? `/catalogue-marjane/${o.catalogueSlug}#page-${o.pageNumber}` : `/catalogue-marjane/${o.catalogueSlug}`;
+  // Same factual description as the meta description (Search Console:
+  // Product "description" is required for Merchant listings).
+  const pagePrice = current?.salePrice ?? product.stats.lowest;
+  const jsonLdDescription =
+    pagePrice != null
+      ? `${product.name} au meilleur prix : ${pagePrice.toLocaleString()} DH chez Marjane. Historique des prix, ${product.offerCount} offre${product.offerCount > 1 ? "s" : ""} suivie${product.offerCount > 1 ? "s" : ""}, promotions et bons plans au Maroc.`
+      : `${product.name} : suivez son prix chez Marjane. Historique des prix et alertes promotions au Maroc.`;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -101,6 +108,7 @@ export default async function ProductDetailPage({ params }: Props) {
         image={product.imageUrl}
         brand={product.brand}
         category={product.category}
+        description={jsonLdDescription}
         offers={product.history.map((h) => ({
           salePrice: h.salePrice,
           catalogueSlug: h.catalogueSlug,

@@ -29,6 +29,8 @@ const metadata = {
   title: "Promotions Marjane - Offres et bons plans au Maroc",
   description:
     "Toutes les promotions Marjane en cours : électroménager, alimentation, high-tech, maison et plus encore au Maroc.",
+  // Filtered variants (?discount=, ?sort=, ?q=, …) canonicalize here.
+  alternates: { canonical: "/promotions-marjane" },
   openGraph: {
     title: "Promotions Marjane - Offres et bons plans au Maroc",
     description: "Toutes les promotions Marjane en cours : électroménager, alimentation, high-tech, maison et plus encore au Maroc.",

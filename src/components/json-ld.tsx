@@ -32,6 +32,50 @@ interface ProductOfferJsonLd {
   endDate: string;
 }
 
+/**
+ * Site-wide merchant facts for Marjane catalogue offers (Morocco, in-store).
+ * These satisfy Google Merchant listings requirements on every Offer.
+ * IMPORTANT: return window / shipping figures are defaults — verify them
+ * against Marjane's actual store policy and adjust here (single place).
+ */
+export const MERCHANT_RETURN_POLICY = {
+  "@type": "MerchantReturnPolicy",
+  applicableCountry: "MA",
+  returnPolicyCategory:
+    "https://schema.org/MerchantReturnFiniteReturnWindow",
+  merchantReturnDays: 7,
+  returnMethod: "https://schema.org/ReturnInStore",
+  returnFees: "https://schema.org/FreeReturn",
+};
+
+export const MERCHANT_SHIPPING_DETAILS = {
+  "@type": "OfferShippingDetails",
+  shippingRate: {
+    "@type": "MonetaryAmount",
+    value: 0,
+    currency: "MAD",
+  },
+  shippingDestination: {
+    "@type": "DefinedRegion",
+    addressCountry: "MA",
+  },
+  deliveryTime: {
+    "@type": "ShippingDeliveryTime",
+    handlingTime: {
+      "@type": "QuantitativeValue",
+      minValue: 0,
+      maxValue: 1,
+      unitCode: "DAY",
+    },
+    transitTime: {
+      "@type": "QuantitativeValue",
+      minValue: 1,
+      maxValue: 3,
+      unitCode: "DAY",
+    },
+  },
+};
+
 export interface ProductReviewJsonLd {
   author: string;
   rating: number;
@@ -46,6 +90,7 @@ export function ProductJsonLd({
   image,
   brand,
   category,
+  description,
   offers,
   reviewSummary,
   reviews,
@@ -55,6 +100,7 @@ export function ProductJsonLd({
   image: string | null;
   brand: string | null;
   category: string;
+  description: string;
   offers: ProductOfferJsonLd[];
   reviewSummary?: { count: number; average: number | null } | null;
   reviews?: ProductReviewJsonLd[];
@@ -66,6 +112,7 @@ export function ProductJsonLd({
     "@context": "https://schema.org",
     "@type": "Product",
     name,
+    description,
     ...(image ? { image: image.startsWith("http") ? image : `${baseUrl}${image}` } : {}),
     ...(brand ? { brand: { "@type": "Brand", name: brand } } : {}),
     category,
@@ -76,11 +123,15 @@ export function ProductJsonLd({
         "@type": "Offer",
         price: o.salePrice,
         priceCurrency: "MAD",
+        priceValidUntil: o.endDate.slice(0, 10),
+        itemCondition: "https://schema.org/NewCondition",
         availability:
           new Date(o.startDate) <= now && new Date(o.endDate) >= now
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
         url: `${baseUrl}/catalogue-marjane/${o.catalogueSlug}`,
+        hasMerchantReturnPolicy: MERCHANT_RETURN_POLICY,
+        shippingDetails: MERCHANT_SHIPPING_DETAILS,
       })),
     ...(reviewSummary && reviewSummary.count > 0 && reviewSummary.average != null
       ? {

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { AIProviderFactory } from "@/ai";
+import { shouldUsePaidKey } from "@/services/ai-settings";
 import { priceVariants } from "@/services/articles";
 
 export interface EditorialResult {
@@ -223,7 +224,8 @@ export async function generateEditorialForCatalogue(
 
   const provider = await AIProviderFactory.create(
     process.env.AI_PROVIDER || "gemini",
-    process.env as Record<string, string | undefined>
+    process.env as Record<string, string | undefined>,
+    { usePaidKey: await shouldUsePaidKey() }
   );
 
   let lastFailure = "unknown";

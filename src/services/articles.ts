@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { AIProviderFactory } from "@/ai";
+import { shouldUsePaidKey } from "@/services/ai-settings";
 import { ARTICLE_GENERATION_PROMPT, SEO_QUALITY_PROMPT, articleTypeInstruction, pickStructureVariant } from "@/ai/prompts";
 import { extractJsonFromAIResponse, slugify, truncateText } from "@/lib/utils";
 import { scoreArticle } from "@/services/seo-score";
@@ -360,7 +361,8 @@ ${scopedPages
 
     const provider = await AIProviderFactory.create(
       process.env.AI_PROVIDER || "gemini",
-      process.env as Record<string, string | undefined>
+      process.env as Record<string, string | undefined>,
+      { usePaidKey: await shouldUsePaidKey() }
     );
 
     // Rotate the article skeleton per catalogue AND intent so successive

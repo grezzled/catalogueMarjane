@@ -12,12 +12,17 @@ export interface AIProvider {
 export class AIProviderFactory {
   static async create(
     provider: string,
-    config: Record<string, string | undefined>
+    config: Record<string, string | undefined>,
+    opts?: { usePaidKey?: boolean }
   ): Promise<AIProvider> {
     switch (provider) {
       case "gemini": {
         const { GeminiProvider } = await import("./providers/gemini");
-        return new GeminiProvider(config.GEMINI_API_KEY, config.AI_MODEL);
+        // SAFETY: usePaidKey defaults to false — paid key stays untouched
+        // unless the caller explicitly passes { usePaidKey: true }.
+        return new GeminiProvider(config.GEMINI_API_KEY, config.AI_MODEL, {
+          usePaidKey: opts?.usePaidKey === true,
+        });
       }
       case "ollama": {
         const { OllamaProvider } = await import("./providers/ollama");

@@ -5,6 +5,8 @@ const envSchema = z.object({
   AI_PROVIDER: z.enum(["gemini", "ollama", "openai"]).default("gemini"),
   AI_MODEL: z.string().default("gemini-2.0-flash"),
   GEMINI_API_KEY: z.string().optional(),
+  // Billable key — NEVER used unless AiSettings.usePaidKey is explicitly true.
+  GEMINI_PAID_KEY: z.string().optional(),
   OLLAMA_URL: z.string().default("http://localhost:11434"),
   OLLAMA_MODEL: z.string().default("llava:latest"),
   OPENAI_API_KEY: z.string().optional(),

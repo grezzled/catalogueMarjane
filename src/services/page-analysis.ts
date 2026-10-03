@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { AIProviderFactory } from "@/ai";
+import { shouldUsePaidKey } from "@/services/ai-settings";
 import { PAGE_ANALYSIS_PROMPT } from "@/ai/prompts";
 import { imageToBase64 } from "@/services/pdf";
 import { cropProductImage } from "@/services/cropping";
@@ -44,7 +45,8 @@ async function callPageAI(
 ): Promise<PageAnalysis> {
   const provider = await AIProviderFactory.create(
     process.env.AI_PROVIDER || "gemini",
-    process.env as Record<string, string | undefined>
+    process.env as Record<string, string | undefined>,
+    { usePaidKey: await shouldUsePaidKey() }
   );
 
   let aiResponse: string;

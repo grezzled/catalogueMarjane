@@ -9,6 +9,7 @@ export const metadata = {
   title: "Articles et conseils Marjane - Promotions et bons plans",
   description:
     "Articles et conseils sur les promotions Marjane : meilleures offres, guides d'achat et bons plans au Maroc.",
+  alternates: { canonical: "/articles" },
   openGraph: {
     title: "Articles et conseils Marjane - Promotions et bons plans",
     description: "Articles et conseils sur les promotions Marjane : meilleures offres, guides d'achat et bons plans au Maroc.",

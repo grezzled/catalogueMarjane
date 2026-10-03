@@ -13,18 +13,70 @@ interface OGSettings {
   defaultLang: "fr" | "ar";
 }
 
+interface AiBilling {
+  usePaidKey: boolean;
+  paidKeySet: boolean;
+  freeKeyCount: number;
+}
+
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<OGSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [lang, setLang] = useState<"fr" | "ar">("fr");
+  const [ai, setAi] = useState<AiBilling | null>(null);
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiMsg, setAiMsg] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/og-settings")
       .then((r) => r.json())
       .then((data) => setSettings({ coverPages: 1, defaultLang: "fr", ...data }))
       .catch(console.error);
+    fetch("/api/ai-settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && typeof data.usePaidKey === "boolean") setAi(data);
+      })
+      .catch(() => undefined);
   }, []);
+
+  async function handleAiToggle(next: boolean) {
+    setAiError(null);
+    setAiMsg(null);
+    if (next && !ai?.paidKeySet) {
+      setAiError("Aucune clé payante configurée — ajoutez GEMINI_PAID_KEY dans .env");
+      return;
+    }
+    if (
+      next &&
+      !window.confirm(
+        "ACTIVER la clé Gemini PAYANTE ?\n\nChaque analyse catalogue / article sera FACTURÉE.\n\nConfirmez uniquement si vous acceptez la facturation."
+      )
+    ) {
+      return;
+    }
+    setAiSaving(true);
+    try {
+      const res = await fetch("/api/ai-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usePaidKey: next }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setAiError(data?.error || "Échec de l'enregistrement");
+        return;
+      }
+      setAi(data);
+      setAiMsg(next ? "Clé payante ACTIVÉE — les appels sont facturés" : "Niveau gratuit actif — aucun appel facturé");
+    } catch {
+      setAiError("Échec de l'enregistrement");
+    } finally {
+      setAiSaving(false);
+    }
+  }
 
   if (!settings) {
     return (
@@ -59,6 +111,59 @@ export default function AdminSettingsPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
+        {/* AI billing switch — SAFETY FIRST: default FREE, paid only on explicit opt-in */}
+        <div
+          className={`rounded-2xl border p-6 mb-6 ${
+            ai?.usePaidKey ? "border-red-300 bg-red-50" : "border-green-200 bg-white"
+          }`}
+        >
+          <div className="flex flex-wrap items-center gap-3 mb-1">
+            <h2 className="text-lg font-semibold text-gray-900">Clé IA Gemini</h2>
+            {ai ? (
+              <span
+                className={`text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${
+                  ai.usePaidKey ? "text-red-700 bg-red-200" : "text-green-700 bg-green-100"
+                }`}
+              >
+                {ai.usePaidKey ? "Payante — facturée" : "Gratuite"}
+              </span>
+            ) : (
+              <span className="text-xs text-gray-400">Chargement…</span>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Par défaut, seules les clés gratuites (<code className="text-xs bg-gray-100 px-1 rounded">GEMINI_API_KEY</code>,
+            {ai ? ` ${ai.freeKeyCount} configurée(s)` : ""}) sont utilisées. Cochez pour autoriser la clé
+            payante (<code className="text-xs bg-gray-100 px-1 rounded">GEMINI_PAID_KEY</code>) — chaque appel
+            sera facturé par Google.
+          </p>
+          {!ai ? null : (
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={ai.usePaidKey}
+                disabled={aiSaving || (!ai.usePaidKey && !ai.paidKeySet)}
+                onChange={(e) => handleAiToggle(e.target.checked)}
+                className="mt-1 h-5 w-5 accent-red-600"
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-900">
+                  Utiliser la clé payante (facturation activée)
+                </span>
+                <span className="block text-xs text-gray-500 mt-0.5">
+                  {ai.paidKeySet
+                    ? "Clé payante détectée sur le serveur."
+                    : "Aucune clé payante sur le serveur — ajoutez GEMINI_PAID_KEY dans .env pour activer."}
+                  {" "}Décocher revient immédiatement au niveau gratuit.
+                </span>
+              </span>
+            </label>
+          )}
+          {aiSaving && <p className="text-xs text-gray-500 mt-3">Enregistrement…</p>}
+          {aiMsg && <p className="text-sm text-green-600 font-medium mt-3">{aiMsg}</p>}
+          {aiError && <p className="text-sm text-red-600 font-medium mt-3">{aiError}</p>}
+        </div>
+
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Paramètres des images OG
         </h1>
