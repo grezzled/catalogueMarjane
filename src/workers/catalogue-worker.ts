@@ -81,7 +81,7 @@ export async function processNextAIJob(): Promise<boolean> {
           await failJob(job.id, "Missing catalogueId in job payload", { retry: false });
           break;
         }
-        // Short single AI call (2 attempts max); the text is verified
+        // Short single AI call (3 attempts max); the text is verified
         // against DB facts before saving, so nothing ungrounded is stored.
         // No step-log streaming: the service is one atomic AI call.
         // Public page refresh is handled by the admin UI via
@@ -90,6 +90,8 @@ export async function processNextAIJob(): Promise<boolean> {
         if (result.success) {
           await completeJob(job.id, {
             text: result.text ?? null,
+            picks: result.picks ?? null,
+            tip: result.tip ?? null,
             checks: result.checks ?? null,
           });
           console.log(`AI job ${job.id} completed (editorial for catalogue ${catalogueId})`);
@@ -153,6 +155,29 @@ export async function processNextAIJob(): Promise<boolean> {
           if (cats.length > 0) {
             await ensureCategoriesExist(cats);
             console.log(`Ensured ${cats.length} categories exist`);
+          }
+          // All pages and offers exist now: move to the editorial step and
+          // queue the catalogue-level text job. The public page is not
+          // published until a human approves that text.
+          if (catalogue.offerCount > 0) {
+            const activeEditorial = await getActiveJobForCatalogue(
+              catalogueId,
+              "GENERATE_EDITORIAL"
+            );
+            if (!activeEditorial) {
+              const editorialJobId = await createJob(
+                "GENERATE_EDITORIAL",
+                { catalogueId },
+                { catalogueId }
+              );
+              console.log(
+                `Queued GENERATE_EDITORIAL job ${editorialJobId} for ${catalogueId}`
+              );
+            }
+            await prisma.catalogue.update({
+              where: { id: catalogueId },
+              data: { status: "EDITORIAL" },
+            });
           }
           await completeJob(job.id, {
             processedPages: catalogue.processedPages,

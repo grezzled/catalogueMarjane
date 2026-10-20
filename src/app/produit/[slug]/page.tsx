@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { getProductDetail, getRelatedProducts } from "@/services/products";
 import { getProductReviewSummary, getPublishedReviews } from "@/services/reviews";
 import { formatDateFr } from "@/lib/utils";
+import { MARJANE_OFFICIAL_URL } from "@/lib/links";
 import PriceHistoryChart from "@/components/price-history-chart";
 import ProductCard from "@/components/product-card";
 import RecentlyViewedLoader from "@/components/recently-viewed-loader";
@@ -137,11 +138,28 @@ export default async function ProductDetailPage({ params }: Props) {
         </nav>
 
         <div className="grid md:grid-cols-[320px_1fr] gap-8 mb-8">
-          <div className="bg-white rounded-lg shadow p-6 flex items-center justify-center min-h-72">
-            {product.imageUrl ? (
-              <img src={product.imageUrl} alt={product.name} className="max-w-full max-h-80 object-contain" />
-            ) : (
-              <Package className="h-20 w-20 text-gray-300" />
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-center min-h-72">
+              {product.imageUrl ? (
+                <img src={product.imageUrl} alt={product.name} className="max-w-full max-h-80 object-contain" />
+              ) : (
+                <Package className="h-20 w-20 text-gray-300" />
+              )}
+            </div>
+            {product.imageUrl && (
+              <p className="mt-4 text-[11px] text-gray-500 leading-relaxed text-center">
+                Image issue d&apos;un catalogue Marjane et propriété de ses
+                ayants droit.{" "}
+                <a
+                  href={MARJANE_OFFICIAL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700 underline"
+                >
+                  Site officiel
+                </a>
+                .
+              </p>
             )}
           </div>
 

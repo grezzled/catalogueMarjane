@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { articleTypeLabel } from "@/lib/article-types";
 import { BreadcrumbListJsonLd } from "@/components/json-ld";
+import { MARJANE_OFFICIAL_URL } from "@/lib/links";
 import CommentsSection from "@/components/comments-section";
 import { CommentCta } from "@/components/comments-section";
 import type { Metadata } from "next";
@@ -253,6 +254,7 @@ export default async function ArticlePage({ params }: Props) {
           id: true,
           title: true,
           slug: true,
+          sourceUrl: true,
           pages: {
             orderBy: { pageNumber: "asc" },
             select: { pageNumber: true, category: true, imagePath: true },
@@ -302,6 +304,9 @@ export default async function ArticlePage({ params }: Props) {
   };
 
   const renderedContent = renderContent(article.content);
+  const hasCatalogueDerivedImages =
+    !!article.catalogue?.pages?.some((page) => page.imagePath) ||
+    /!\[|<img/i.test(article.content);
 
   let faqItems: Array<{ question: string; answer: string }> = [];
   try {
@@ -410,6 +415,22 @@ export default async function ArticlePage({ params }: Props) {
               className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 md:p-10"
               dangerouslySetInnerHTML={{ __html: renderedContent }}
             />
+            {hasCatalogueDerivedImages && (
+              <p className="mt-4 px-1 text-xs text-gray-500 leading-relaxed">
+                Les images et visuels issus des catalogues Marjane appartiennent
+                à leurs propriétaires respectifs et sont reproduits à titre
+                informatif.{" "}
+                <a
+                  href={article.catalogue?.sourceUrl || MARJANE_OFFICIAL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700 underline"
+                >
+                  Source officielle
+                </a>
+                .
+              </p>
+            )}
             <div className="mt-8">
               <CommentsSection target="article" targetId={article.id} />
             </div>

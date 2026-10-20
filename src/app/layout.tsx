@@ -7,6 +7,7 @@ import PageviewTracker from "@/components/pageview-tracker";
 import CookieConsent from "@/components/cookie-consent";
 import GoogleAnalytics from "@/components/google-analytics";
 import WhatsAppPopup from "@/components/whatsapp-popup";
+import { MARJANE_OFFICIAL_URL } from "@/lib/links";
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://cataloguemarjane.com"),
@@ -146,8 +147,19 @@ export default function RootLayout({
                 © {new Date().getFullYear()} Catalogue Marjane. Tous droits
                 réservés.
               </p>
-              <p className="text-gray-500 text-xs">
-                Site indépendant, non affilié à Marjane.
+              <p className="text-gray-500 text-xs sm:text-right">
+                Site indépendant, non affilié à Marjane. Les catalogues, images,
+                marques et logos cités appartiennent à leurs propriétaires
+                respectifs.{" "}
+                <a
+                  href={MARJANE_OFFICIAL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-white transition-colors"
+                >
+                  Site officiel de Marjane
+                </a>
+                .
               </p>
             </div>
           </div>

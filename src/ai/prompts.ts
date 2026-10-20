@@ -35,6 +35,18 @@ Crop tightly around the product visual (the photo/illustration of the product it
 If a product has no distinct visual on the page, estimate the area of its text block instead of omitting the box.
 A product without a boundingBox is an invalid result — always include one.
 
+Also write the page's public editorial layer, in FRENCH:
+- editorialTitle: a short page title of at most 8 words, naming the theme of the page
+- editorialSummary: 2 to 3 sentences naming the main products actually visible on this page
+- imageAlt: one descriptive sentence for the page image's alt text
+
+EDITORIAL RULES:
+- Only mention products, prices and specifications that are visibly present on this page.
+- Do not invent specifications, brands, prices or products.
+- No marketing adjectives (incroyable, exceptionnel, meilleur, unique, fabuleux, etc.).
+- Do not use formula phrases such as "complètent cette page", "ne manquez pas" or "il y en a pour tous les goûts".
+- editorialSummary must be plain French prose, not a list.
+
 Also determine:
 - page type: cover, back_cover, product_offers, category_overview, editorial, mixed, unknown
 - main category of products on this page
@@ -47,6 +59,9 @@ Return ONLY valid JSON matching this structure:
   "pageType": "<type>",
   "category": "<category or null>",
   "title": "<page title or null>",
+  "editorialTitle": "<max 8 words, French>",
+  "editorialSummary": "<2-3 sentences, French>",
+  "imageAlt": "<one descriptive sentence, French>",
   "products": [
     {
       "name": "<product name>",

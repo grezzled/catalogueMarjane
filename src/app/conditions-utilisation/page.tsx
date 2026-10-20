@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BreadcrumbListJsonLd } from "@/components/json-ld";
+import { MARJANE_OFFICIAL_URL } from "@/lib/links";
 
 export const metadata = {
   title: "Conditions d'utilisation - Catalogue Marjane Maroc",
@@ -139,11 +140,20 @@ export default function ConditionsUtilisationPage() {
             <strong className="text-gray-900">
               n&apos;est ni affilié, ni approuvé, ni géré par Marjane
             </strong>
-            . Les marques, logos et noms cités appartiennent à leurs
-            propriétaires respectifs et sont mentionnés uniquement à des fins
-            d&apos;information. Pour toute question sur un produit, un prix ou
-            un stock, adressez-vous directement aux magasins ou aux canaux
-            officiels de Marjane.
+            . Les images, catalogues, marques, logos et noms cités
+            appartiennent à leurs propriétaires respectifs. Ces éléments sont
+            présentés uniquement à des fins d&apos;information. Pour toute question sur un
+            produit, un prix ou un stock, adressez-vous directement aux
+            magasins ou aux canaux officiels de Marjane, notamment{" "}
+            <a
+              href={MARJANE_OFFICIAL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 font-medium underline"
+            >
+              marjane.ma
+            </a>
+            .
           </p>
         </section>
 

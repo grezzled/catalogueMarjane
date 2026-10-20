@@ -11,6 +11,7 @@ import {
 import { findMatchingProduct } from "@/services/product-match";
 import { assignProductSlug } from "@/services/products";
 import { extractJsonFromAIResponse } from "@/lib/utils";
+import { normalizePageEditorial } from "@/services/page-editorial";
 import type { PageAnalysis } from "@/types";
 
 export interface ProcessingLog {
@@ -74,6 +75,23 @@ export async function processCatalogue(
 
     if (page.status === "COMPLETED" && page.aiAnalysis) {
       processedPages++;
+      // Backfill the editorial layer for pages analyzed before it existed.
+      if (!page.editorialTitle || !page.editorialSummary || !page.imageAlt) {
+        try {
+          const existing = JSON.parse(page.aiAnalysis) as PageAnalysis;
+          const editorial = normalizePageEditorial(existing, page.pageNumber);
+          await prisma.cataloguePage.update({
+            where: { id: page.id },
+            data: {
+              editorialTitle: editorial.title,
+              editorialSummary: editorial.summary,
+              imageAlt: editorial.imageAlt,
+            },
+          });
+        } catch {
+          // Leave null; the public page has a deterministic fallback.
+        }
+      }
       continue;
     }
 
@@ -123,11 +141,15 @@ export async function processCatalogue(
       const category = detectCategory(
         analysis.category || analysis.title || ""
       );
+      const editorial = normalizePageEditorial(analysis, page.pageNumber);
 
       await prisma.cataloguePage.update({
         where: { id: page.id },
         data: {
           aiAnalysis: JSON.stringify(analysis),
+          editorialTitle: editorial.title,
+          editorialSummary: editorial.summary,
+          imageAlt: editorial.imageAlt,
           pageType: analysis.pageType,
           category,
           productCount: pageProductCount,

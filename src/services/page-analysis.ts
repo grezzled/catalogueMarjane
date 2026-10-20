@@ -8,6 +8,7 @@ import { detectCategory, detectBrand } from "@/services/categories";
 import { findMatchingProduct } from "@/services/product-match";
 import { assignProductSlug } from "@/services/products";
 import { extractJsonFromAIResponse } from "@/lib/utils";
+import { normalizePageEditorial } from "@/services/page-editorial";
 import type { PageAnalysis } from "@/types";
 import { dirname } from "path";
 
@@ -152,12 +153,16 @@ export async function analyzePageFull(
   const analysis = await callPageAI(page, addLog);
   const products = analysis.products || [];
   const category = detectCategory(analysis.category || analysis.title || "");
+  const editorial = normalizePageEditorial(analysis, page.pageNumber);
   addLog("ai_request", "completed", `Found ${products.length} products on page ${page.pageNumber}`);
 
   await prisma.cataloguePage.update({
     where: { id: pageId },
     data: {
       aiAnalysis: JSON.stringify(analysis),
+      editorialTitle: editorial.title,
+      editorialSummary: editorial.summary,
+      imageAlt: editorial.imageAlt,
       pageType: analysis.pageType,
       category,
       productCount: products.length,
@@ -167,6 +172,18 @@ export async function analyzePageFull(
       processedAt: new Date(),
     },
   });
+
+  // Re-analyzing a page changes its public text: revoke the editorial approval.
+  if (page.catalogue.status === "PUBLISHED" || page.catalogue.editorialStatus === "Approved") {
+    await prisma.catalogue.update({
+      where: { id: page.catalogueId },
+      data: {
+        status: "REVIEW",
+        editorialStatus: "Generated",
+        editorialApprovedAt: null,
+      },
+    });
+  }
 
   for (const product of products) {
     const brand = product.brand || detectBrand(product.name);

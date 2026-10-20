@@ -16,6 +16,46 @@ interface CataloguePage {
   extractedText: string | null;
   imagePath: string | null;
   aiAnalysis: string | null;
+  editorialTitle: string | null;
+  editorialSummary: string | null;
+  imageAlt: string | null;
+}
+
+interface AdminOffer {
+  id: string;
+  productId: string;
+  salePrice: number | null;
+  originalPrice: number | null;
+  discountPercentage: number | null;
+  discountAmount: number | null;
+  product: {
+    name: string;
+    slug: string | null;
+    category: string;
+    imageUrl: string | null;
+  };
+  cataloguePage: { pageNumber: number } | null;
+}
+
+interface EditorialPickForm {
+  productId: string;
+  name: string;
+  salePrice: number | null;
+  originalPrice: number | null;
+  discountPercentage: number | null;
+  reason: string;
+}
+
+interface EditorialChecks {
+  valid?: boolean;
+  attempts?: number;
+  fallback?: boolean;
+  wordCount?: number;
+  errors?: string[];
+}
+
+function countWords(value: string): number {
+  return value.trim() ? value.trim().split(/\s+/).filter(Boolean).length : 0;
 }
 
 interface ParsedAnalysis {
@@ -53,6 +93,12 @@ interface CatalogueDetail {
   offerCount: number;
   articleCount: number;
   aiProcessingProgress: number;
+  editorialPicks: string | null;
+  editorialTip: string | null;
+  editorialStatus: string;
+  editorialChecks: string | null;
+  editorialGeneratedAt: string | null;
+  editorialApprovedAt: string | null;
   ogBannerTitle: string | null;
   ogBannerTitleAr: string | null;
   ogBannerSubtitle: string | null;
@@ -83,9 +129,23 @@ export default function CatalogueDetailPage() {
   const [pages, setPages] = useState<CataloguePage[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPage, setSelectedPage] = useState<CataloguePage | null>(null);
-  const [activeTab, setActiveTab] = useState<"image" | "text" | "analysis" | "products">("image");
+  const [activeTab, setActiveTab] = useState<"image" | "text" | "analysis" | "editorial" | "products">("image");
   const [regenerating, setRegenerating] = useState(false);
   const [editorialSaving, setEditorialSaving] = useState(false);
+  const [offers, setOffers] = useState<AdminOffer[]>([]);
+  const [editorialForm, setEditorialForm] = useState<{
+    intro: string;
+    tip: string;
+    picks: EditorialPickForm[];
+  }>({ intro: "", tip: "", picks: [] });
+  const [editorialFormSaving, setEditorialFormSaving] = useState(false);
+  const [editorialApproving, setEditorialApproving] = useState(false);
+  const [pageEditorialForm, setPageEditorialForm] = useState({
+    title: "",
+    summary: "",
+    alt: "",
+  });
+  const [pageEditorialSaving, setPageEditorialSaving] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
   const [pageProducts, setPageProducts] = useState<Array<{ id: string; name: string; imageUrl: string | null; boundingBox: { x: number; y: number; width: number; height: number } | null }>>([]);
   const [cropping, setCropping] = useState(false);
@@ -116,6 +176,7 @@ export default function CatalogueDetailPage() {
     "ANALYZING",
     "STRUCTURING",
     "GENERATING",
+    "EDITORIAL",
     "REVIEW",
     "PUBLISHED",
     "FAILED",
@@ -136,10 +197,13 @@ export default function CatalogueDetailPage() {
       fetch(`/api/catalogues/${id}`).then((r) => r.json()),
       fetch(`/api/catalogues/${id}/pages`).then((r) => r.json()),
       fetch(`/api/og-settings`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/catalogues/${id}/offers`).then((r) => r.json()).catch(() => []),
     ])
-      .then(([catalogueData, pagesData, ogSettings]) => {
+      .then(([catalogueData, pagesData, ogSettings, offersData]) => {
         setCatalogue(catalogueData);
         setPages(pagesData);
+        setOffers(Array.isArray(offersData) ? offersData : []);
+        applyEditorialFromCatalogue(catalogueData);
         if (ogSettings) {
           setOgGlobal({
             ogBannerTitle: ogSettings.bannerTitle ?? "",
@@ -188,6 +252,47 @@ export default function CatalogueDetailPage() {
     }
   }
 
+  function parseEditorialPicks(raw: string | null): EditorialPickForm[] {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((p) => p && typeof p.productId === "string")
+        .map((p) => ({
+          productId: p.productId,
+          name: typeof p.name === "string" ? p.name : "",
+          salePrice: typeof p.salePrice === "number" ? p.salePrice : null,
+          originalPrice: typeof p.originalPrice === "number" ? p.originalPrice : null,
+          discountPercentage:
+            typeof p.discountPercentage === "number" ? p.discountPercentage : null,
+          reason: typeof p.reason === "string" ? p.reason : "",
+        }));
+    } catch {
+      return [];
+    }
+  }
+
+  function applyEditorialFromCatalogue(cat: CatalogueDetail) {
+    setEditorialForm({
+      intro: cat.description ?? "",
+      tip: cat.editorialTip ?? "",
+      picks: parseEditorialPicks(cat.editorialPicks),
+    });
+  }
+
+  function pageEditorialDefaults(page: CataloguePage) {
+    const analysis = parseAnalysis(page.aiAnalysis);
+    return {
+      title: page.editorialTitle ?? analysis?.title ?? `Page ${page.pageNumber}`,
+      summary: page.editorialSummary ?? "",
+      alt:
+        page.imageAlt ??
+        `${analysis?.title || `Page ${page.pageNumber}`} du catalogue ${catalogue?.title ?? ""}`.trim(),
+    };
+  }
+
+
   function openEditModal() {
     if (!catalogue) return;
     setEditForm({
@@ -222,8 +327,18 @@ export default function CatalogueDetailPage() {
       );
       const job = await pollPageJob(data.jobId, "Texte éditorial");
       if (job?.status === "COMPLETED") {
-        const updated = await fetch(`/api/catalogues/${id}`).then((r) => r.json());
-        setCatalogue((prev) => (prev ? { ...prev, description: updated.description ?? prev.description } : prev));
+        const [updated, offersData] = await Promise.all([
+          fetch(`/api/catalogues/${id}`).then((r) => r.json()),
+          fetch(`/api/catalogues/${id}/offers`).then((r) => r.json()).catch(() => []),
+        ]);
+        setCatalogue(updated);
+        applyEditorialFromCatalogue(updated);
+        setOffers(Array.isArray(offersData) ? offersData : []);
+        await fetch("/api/revalidate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scope: "catalogue", slug: updated.slug }),
+        }).catch(() => {});
         showToast("success", "Texte éditorial généré et vérifié");
       } else if (job?.status === "FAILED") {
         showToast("error", job.error || "Échec de génération (texte non vérifié)");
@@ -232,6 +347,119 @@ export default function CatalogueDetailPage() {
       showToast("error", "Network error");
     } finally {
       setEditorialSaving(false);
+    }
+  }
+
+  async function handleSaveEditorial(action: "save" | "approve") {
+    if (action === "approve") setEditorialApproving(true);
+    else setEditorialFormSaving(true);
+    try {
+      if (action === "approve" && (editorialForm.picks.length < 3 || editorialForm.picks.length > 5)) {
+        showToast("error", "La sélection doit contenir entre 3 et 5 offres avant approbation.");
+        return;
+      }
+      const res = await fetch(`/api/catalogues/${id}/editorial`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          intro: editorialForm.intro,
+          tip: editorialForm.tip,
+          picks: editorialForm.picks.map((p) => ({
+            productId: p.productId,
+            reason: p.reason,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast("error", data.error || "Impossible d'enregistrer le texte éditorial.");
+        return;
+      }
+      const updated = await fetch(`/api/catalogues/${id}`).then((r) => r.json());
+      setCatalogue(updated);
+      applyEditorialFromCatalogue(updated);
+      showToast(
+        "success",
+        action === "approve" ? "Texte éditorial approuvé" : "Texte éditorial enregistré"
+      );
+    } catch {
+      showToast("error", "Network error");
+    } finally {
+      setEditorialApproving(false);
+      setEditorialFormSaving(false);
+    }
+  }
+
+  function addEditorialPick(offer: AdminOffer) {
+    setEditorialForm((prev) => {
+      if (prev.picks.length >= 5) return prev;
+      if (prev.picks.some((p) => p.productId === offer.productId)) return prev;
+      return {
+        ...prev,
+        picks: [
+          ...prev.picks,
+          {
+            productId: offer.productId,
+            name: offer.product.name,
+            salePrice: offer.salePrice,
+            originalPrice: offer.originalPrice,
+            discountPercentage: offer.discountPercentage,
+            reason: "",
+          },
+        ],
+      };
+    });
+  }
+
+  function removeEditorialPick(productId: string) {
+    setEditorialForm((prev) => ({
+      ...prev,
+      picks: prev.picks.filter((p) => p.productId !== productId),
+    }));
+  }
+
+  function updateEditorialPickReason(productId: string, reason: string) {
+    setEditorialForm((prev) => ({
+      ...prev,
+      picks: prev.picks.map((p) => (p.productId === productId ? { ...p, reason } : p)),
+    }));
+  }
+
+  async function handleSavePageEditorial() {
+    if (!selectedPage || pageEditorialSaving) return;
+    setPageEditorialSaving(true);
+    try {
+      const res = await fetch(`/api/pages/${selectedPage.id}/editorial`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          editorialTitle: pageEditorialForm.title,
+          editorialSummary: pageEditorialForm.summary,
+          imageAlt: pageEditorialForm.alt,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast("error", data.error || "Impossible d'enregistrer le texte de la page.");
+        return;
+      }
+      const updatedPages = await fetch(`/api/catalogues/${id}/pages`).then((r) => r.json());
+      setPages(updatedPages);
+      const fresh = updatedPages.find((p: CataloguePage) => p.id === selectedPage.id) ?? null;
+      setSelectedPage(fresh);
+      const updatedCatalogue = await fetch(`/api/catalogues/${id}`).then((r) => r.json());
+      setCatalogue(updatedCatalogue);
+      showToast(
+        "success",
+        data.approvalRevoked
+          ? "Page enregistrée — l'approbation du catalogue a été révoquée"
+          : "Texte de la page enregistré"
+      );
+    } catch {
+      showToast("error", "Network error");
+    } finally {
+      setPageEditorialSaving(false);
     }
   }
 
@@ -619,10 +847,13 @@ export default function CatalogueDetailPage() {
     if (pagesRes.ok) {
       const pagesData = await pagesRes.json();
       setPages(pagesData);
-      setSelectedPage((prev) => {
-        if (!prev) return null;
-        return pagesData.find((p: CataloguePage) => p.id === prev.id) || prev;
-      });
+      if (selectedPage) {
+        const updated = pagesData.find((p: CataloguePage) => p.id === selectedPage.id);
+        if (updated) {
+          setSelectedPage(updated);
+          setPageEditorialForm(pageEditorialDefaults(updated));
+        }
+      }
     }
   }
 
@@ -714,6 +945,33 @@ export default function CatalogueDetailPage() {
   if (!catalogue) return <div className="p-8 text-center">Catalogue not found</div>;
 
   const selectedAnalysis = parseAnalysis(selectedPage?.aiAnalysis ?? null);
+  const editorialChecks = (() => {
+    if (!catalogue.editorialChecks) return null;
+    try {
+      return JSON.parse(catalogue.editorialChecks) as EditorialChecks;
+    } catch {
+      return null;
+    }
+  })();
+  const editorialWordCount = countWords(
+    [
+      editorialForm.intro,
+      editorialForm.tip,
+      ...editorialForm.picks.map((p) => p.reason),
+      ...pages.map((p) => p.editorialSummary ?? ""),
+    ].join(" ")
+  );
+  const editorialStatusLabel: Record<string, string> = {
+    NONE: "Non généré",
+    Generated: "À relire",
+    Approved: "Approuvé",
+  };
+  const editorialStatusClass: Record<string, string> = {
+    NONE: "bg-gray-100 text-gray-700",
+    Generated: "bg-amber-100 text-amber-800",
+    Approved: "bg-green-100 text-green-800",
+  };
+  const selectedPickIds = new Set(editorialForm.picks.map((p) => p.productId));
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -801,26 +1059,185 @@ export default function CatalogueDetailPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Texte éditorial (SEO)</h2>
-              <p className="text-sm text-gray-500">
-                Généré par IA via la file d&apos;attente du worker, à partir des offres en base, vérifié prix par prix. Affiché sur la page publique.
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-gray-900">Texte éditorial (SEO)</h2>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${editorialStatusClass[catalogue.editorialStatus] || editorialStatusClass.NONE}`}>
+                  {editorialStatusLabel[catalogue.editorialStatus] || catalogue.editorialStatus}
+                </span>
+                <span className={`text-xs font-semibold ${editorialWordCount >= 400 && editorialWordCount <= 800 ? "text-green-700" : "text-red-600"}`}>
+                  {editorialWordCount} mots (cible 400–800)
+                </span>
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Généré à partir des offres en base, vérifié prix par prix. La publication exige une approbation explicite.
               </p>
+              {catalogue.editorialGeneratedAt && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Généré le {new Date(catalogue.editorialGeneratedAt).toLocaleString("fr-FR")}
+                  {catalogue.editorialApprovedAt ? ` — approuvé le ${new Date(catalogue.editorialApprovedAt).toLocaleString("fr-FR")}` : ""}
+                </p>
+              )}
             </div>
-            <button
-              onClick={handleGenerateEditorial}
-              disabled={editorialSaving}
-              className="shrink-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
-            >
-              {editorialSaving ? "Génération…" : catalogue.description ? "Régénérer" : "Générer"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleGenerateEditorial}
+                disabled={editorialSaving}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+              >
+                {editorialSaving ? "Génération…" : catalogue.editorialGeneratedAt ? "Régénérer" : "Générer"}
+              </button>
+              <button
+                onClick={() => handleSaveEditorial("save")}
+                disabled={editorialFormSaving || editorialApproving}
+                className="border border-gray-300 hover:bg-gray-50 disabled:opacity-50 text-gray-800 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              >
+                {editorialFormSaving ? "Enregistrement…" : "Enregistrer"}
+              </button>
+              <button
+                onClick={() => handleSaveEditorial("approve")}
+                disabled={editorialApproving || editorialFormSaving}
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+              >
+                {editorialApproving ? "Approbation…" : "Approuver"}
+              </button>
+            </div>
           </div>
-          {catalogue.description ? (
-            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{catalogue.description}</p>
-          ) : (
-            <p className="text-sm text-gray-400 italic">Aucun texte — la page publique affiche un résumé automatique.</p>
+
+          {editorialChecks?.fallback && (
+            <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Le texte affiché provient du gabarit de secours après {editorialChecks.attempts ?? 3} tentative(s). Relisez-le avant approbation.
+            </div>
           )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-5">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Introduction du catalogue</label>
+                <textarea
+                  value={editorialForm.intro}
+                  onChange={(e) => setEditorialForm((f) => ({ ...f, intro: e.target.value }))}
+                  rows={10}
+                  placeholder="Introduction affichée sous le titre de la page publique…"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Notre sélection ({editorialForm.picks.length}/5)</label>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const offer = offers.find((o) => o.id === e.target.value);
+                      if (offer) addEditorialPick(offer);
+                      e.currentTarget.value = "";
+                    }}
+                    disabled={editorialForm.picks.length >= 5}
+                    className="text-xs border border-gray-300 rounded-md px-2 py-1 bg-white disabled:opacity-50"
+                  >
+                    <option value="">+ Ajouter une offre…</option>
+                    {offers
+                      .filter((o) => !selectedPickIds.has(o.productId))
+                      .map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.product.name} — {o.salePrice != null ? `${o.salePrice} DH` : "prix n/a"}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                {editorialForm.picks.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic border border-dashed rounded-lg p-3">
+                    Aucune sélection. Générez le texte ou ajoutez 3 à 5 offres.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {editorialForm.picks.map((pick) => (
+                      <div key={pick.productId} className="rounded-lg border border-gray-200 p-3 bg-gray-50">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{pick.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {pick.salePrice != null ? `${pick.salePrice} DH` : "Prix n/a"}
+                              {pick.originalPrice != null ? ` (avant ${pick.originalPrice} DH)` : ""}
+                              {pick.discountPercentage != null ? ` — -${Math.round(pick.discountPercentage)}%` : ""}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => removeEditorialPick(pick.productId)}
+                            className="text-xs text-red-600 hover:underline shrink-0"
+                          >
+                            Retirer
+                          </button>
+                        </div>
+                        <textarea
+                          value={pick.reason}
+                          onChange={(e) => updateEditorialPickReason(pick.productId, e.target.value)}
+                          rows={2}
+                          placeholder="Pourquoi cette offre est-elle retenue ?"
+                          className="mt-2 w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Conseil d&apos;achat</label>
+                <textarea
+                  value={editorialForm.tip}
+                  onChange={(e) => setEditorialForm((f) => ({ ...f, tip: e.target.value }))}
+                  rows={3}
+                  placeholder="Conseil pratique affiché avant la liste des offres…"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-700">Offres du catalogue ({offers.length})</h3>
+                <span className="text-xs text-gray-400">{selectedPickIds.size} sélectionnée(s)</span>
+              </div>
+              <div className="border border-gray-200 rounded-lg divide-y max-h-[620px] overflow-auto">
+                {offers.length === 0 ? (
+                  <p className="p-3 text-xs text-gray-400 italic">Aucune offre en base.</p>
+                ) : (
+                  offers.map((offer) => {
+                    const selected = selectedPickIds.has(offer.productId);
+                    return (
+                      <div key={offer.id} className={`p-2.5 flex items-start justify-between gap-2 ${selected ? "bg-green-50" : ""}`}>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-gray-900 truncate" title={offer.product.name}>
+                            {offer.product.name}
+                          </p>
+                          <p className="text-[11px] text-gray-500">
+                            {offer.cataloguePage ? `Page ${offer.cataloguePage.pageNumber} — ` : ""}
+                            {offer.salePrice != null ? `${offer.salePrice} DH` : "Prix n/a"}
+                            {offer.originalPrice != null ? ` / ${offer.originalPrice} DH` : ""}
+                            {offer.discountPercentage != null ? ` — -${Math.round(offer.discountPercentage)}%` : ""}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => (selected ? removeEditorialPick(offer.productId) : addEditorialPick(offer))}
+                          disabled={!selected && editorialForm.picks.length >= 5}
+                          className={`shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded disabled:opacity-40 ${
+                            selected
+                              ? "text-red-600 hover:bg-red-50"
+                              : "text-blue-600 hover:bg-blue-50"
+                          }`}
+                        >
+                          {selected ? "Retirer" : "Ajouter"}
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {ogOpen && (
@@ -989,6 +1406,7 @@ export default function CatalogueDetailPage() {
               key={page.id}
               onClick={() => {
                 setSelectedPage(page);
+                setPageEditorialForm(pageEditorialDefaults(page));
                 setActiveTab("image");
                 fetch(`/api/catalogues/${id}/pages/${page.id}/products`)
                   .then((r) => r.json())
@@ -1095,7 +1513,7 @@ export default function CatalogueDetailPage() {
 
               <div className="w-1/2 flex flex-col overflow-hidden">
                 <div className="flex border-b px-4 shrink-0">
-                  {(["text", "analysis", "products"] as const).map((tab) => (
+                  {(["text", "analysis", "editorial", "products"] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -1107,6 +1525,7 @@ export default function CatalogueDetailPage() {
                     >
                       {tab === "text" && "Extracted Text"}
                       {tab === "analysis" && "AI Analysis"}
+                      {tab === "editorial" && "Texte éditorial"}
                       {tab === "products" && `Products (${selectedAnalysis?.products?.length || 0})`}
                     </button>
                   ))}
@@ -1170,6 +1589,55 @@ export default function CatalogueDetailPage() {
                       ) : (
                         <p className="text-gray-500">No AI analysis available for this page.</p>
                       )}
+                    </div>
+                  )}
+
+                  {activeTab === "editorial" && (
+                    <div className="space-y-4">
+                      <p className="text-xs text-gray-500">
+                        Texte public de la page {selectedPage.pageNumber}. Toute modification d&apos;une page
+                        approuvée révoque l&apos;approbation du catalogue.
+                      </p>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Titre ({countWords(pageEditorialForm.title)}/8 mots)
+                        </label>
+                        <input
+                          type="text"
+                          value={pageEditorialForm.title}
+                          onChange={(e) => setPageEditorialForm((f) => ({ ...f, title: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Résumé (2–3 phrases)
+                        </label>
+                        <textarea
+                          value={pageEditorialForm.summary}
+                          onChange={(e) => setPageEditorialForm((f) => ({ ...f, summary: e.target.value }))}
+                          rows={5}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Texte alternatif de l&apos;image (une phrase)
+                        </label>
+                        <input
+                          type="text"
+                          value={pageEditorialForm.alt}
+                          onChange={(e) => setPageEditorialForm((f) => ({ ...f, alt: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <button
+                        onClick={handleSavePageEditorial}
+                        disabled={pageEditorialSaving}
+                        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg"
+                      >
+                        {pageEditorialSaving ? "Enregistrement…" : "Enregistrer le texte de la page"}
+                      </button>
                     </div>
                   )}
 

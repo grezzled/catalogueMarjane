@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatDateRange } from "@/lib/utils";
+import { MARJANE_OFFICIAL_URL } from "@/lib/links";
 import CountdownTimer from "@/components/countdown-timer";
 import CatalogueSidebar from "@/components/catalogue-sidebar";
 import CataloguePageExplorer from "@/components/catalogue-page-explorer";
@@ -25,6 +26,15 @@ export async function generateStaticParams() {
 
 interface Props {
   params: Promise<{ slug: string }>;
+}
+
+interface EditorialPick {
+  productId: string;
+  name?: string;
+  reason?: string;
+  salePrice?: number | null;
+  originalPrice?: number | null;
+  discountPercentage?: number | null;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -100,6 +110,9 @@ export default async function CatalogueDetailPage({ params }: Props) {
           productCount: true,
           aiAnalysis: true,
           imagePath: true,
+          editorialTitle: true,
+          editorialSummary: true,
+          imageAlt: true,
         },
       },
       offers: {
@@ -243,6 +256,26 @@ export default async function CatalogueDetailPage({ params }: Props) {
   const topDeals = catalogue.offers
     .filter((o) => (o.discountPercentage ?? 0) > 0)
     .slice(0, 3);
+  const editorialPicks = (() => {
+    if (!catalogue.editorialPicks) return [];
+    try {
+      const parsed = JSON.parse(catalogue.editorialPicks) as EditorialPick[];
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((p) => p && typeof p.productId === "string")
+        .map((p) => {
+          const offer = catalogue.offers.find((o) => o.productId === p.productId);
+          return offer ? { ...p, offer } : null;
+        })
+        .filter((p): p is EditorialPick & { offer: (typeof catalogue.offers)[number] } => p !== null)
+        .slice(0, 5);
+    } catch {
+      return [];
+    }
+  })();
+  const pagesWithEditorial = catalogue.pages.filter(
+    (p) => p.editorialSummary && p.editorialTitle
+  );
   const datesStr = formatDateRange(catalogue.startDate, catalogue.endDate);
   const daysLeft = Math.max(0, Math.ceil((catalogue.endDate.getTime() - now.getTime()) / 86400000));
 
@@ -367,6 +400,11 @@ export default async function CatalogueDetailPage({ params }: Props) {
               <p className="text-blue-100 text-xs sm:text-sm mt-0.5">
                 {formatDateRange(catalogue.startDate, catalogue.endDate)}
               </p>
+              {catalogue.description && (
+                <p className="mt-2 max-w-3xl text-xs sm:text-sm text-blue-50/90 leading-relaxed line-clamp-4">
+                  {catalogue.description.split(/\n\s*\n/)[0]}
+                </p>
+              )}
             </div>
             <div className="shrink-0 flex sm:flex-col sm:items-end gap-1.5 sm:ml-auto">
               {isCurrent && (
@@ -442,8 +480,131 @@ export default async function CatalogueDetailPage({ params }: Props) {
         </div>
       </section>
 
+      {pagesWithEditorial.length > 0 && (
+        <section className="bg-gray-50 border-b border-gray-200" aria-label="Le catalogue page par page">
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="bg-gradient-to-br from-indigo-500 to-blue-400 rounded-xl p-2.5 shadow-lg shadow-indigo-200">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Le catalogue page par page</h2>
+                <p className="text-sm text-gray-500">Ce que contient chaque page de ce catalogue Marjane</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pagesWithEditorial.map((page) => {
+                const imageUrl = toImageUrl(page.imagePath);
+                return (
+                  <article key={page.id} className="bg-white border border-gray-200 rounded-2xl p-4 flex gap-4">
+                    {imageUrl && (
+                      <img
+                        src={imageUrl}
+                        alt={page.imageAlt || page.editorialTitle || `Page ${page.pageNumber} du catalogue`}
+                        loading="lazy"
+                        className="w-24 h-32 object-cover rounded-xl border border-gray-100 shrink-0"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+                        Page {page.pageNumber}
+                      </p>
+                      <h3 className="mt-1 font-bold text-gray-900 leading-snug">{page.editorialTitle}</h3>
+                      <p className="mt-1.5 text-sm text-gray-600 leading-relaxed">{page.editorialSummary}</p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            <p className="mt-4 text-xs text-gray-500 leading-relaxed">
+              Les visuels de pages sont issus du catalogue officiel Marjane et
+              restent la propriété de leurs ayants droit.{" "}
+              <a
+                href={catalogue.sourceUrl || MARJANE_OFFICIAL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-700 underline"
+              >
+                Voir la source officielle
+              </a>
+              .
+            </p>
+          </div>
+        </section>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 py-10 flex flex-col lg:flex-row gap-8 items-stretch lg:items-start">
         <main className="flex-1 min-w-0 w-full overflow-x-clip">
+          {(editorialPicks.length > 0 || catalogue.editorialTip) && (
+            <section className="mb-14" aria-label="Notre sélection">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-gradient-to-br from-rose-500 to-orange-400 rounded-xl p-2.5 shadow-lg shadow-rose-200">
+                  <Tag className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Notre sélection</h2>
+                  <p className="text-sm text-gray-500">Les offres à retenir dans ce catalogue</p>
+                </div>
+              </div>
+              {editorialPicks.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {editorialPicks.map((pick) => {
+                    const offer = pick.offer;
+                    const imageUrl = toImageUrl(offer.product.imageUrl);
+                    const href = `/produit/${offer.product.slug ?? offer.product.id}`;
+                    return (
+                      <article key={pick.productId} className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col">
+                        <div className="flex items-start gap-3">
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt={offer.product.name}
+                              loading="lazy"
+                              className="w-16 h-16 object-contain rounded-xl bg-gray-50 border border-gray-100 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 rounded-xl bg-gray-50 border border-gray-100 shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <Link href={href} className="font-bold text-gray-900 leading-snug hover:text-blue-700 line-clamp-2">
+                              {offer.product.name}
+                            </Link>
+                            <p className="mt-1 text-sm">
+                              {offer.salePrice != null && (
+                                <span className="font-extrabold text-emerald-700">
+                                  {offer.salePrice.toLocaleString()} DH
+                                </span>
+                              )}
+                              {offer.originalPrice != null && (
+                                <span className="ml-2 text-xs text-gray-400 line-through">
+                                  {offer.originalPrice.toLocaleString()} DH
+                                </span>
+                              )}
+                            </p>
+                            {offer.discountPercentage != null && (
+                              <span className="mt-1 inline-block text-[11px] font-extrabold text-white bg-red-500 rounded-full px-2 py-0.5">
+                                -{Math.round(offer.discountPercentage)}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {pick.reason && (
+                          <p className="mt-3 text-sm text-gray-600 leading-relaxed">{pick.reason}</p>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+              {catalogue.editorialTip && (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-amber-800">Conseil d&apos;achat</p>
+                  <p className="mt-1 text-sm text-amber-950 leading-relaxed">{catalogue.editorialTip}</p>
+                </div>
+              )}
+            </section>
+          )}
+
           <TopOffersSection topOffers={topOffers} catalogueSlug={catalogue.slug} catalogueTitle={catalogue.title} />
 
         <CatalogueOffersTable
@@ -556,9 +717,24 @@ export default async function CatalogueDetailPage({ params }: Props) {
               className="inline-flex items-center gap-2 mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-              Voir le catalogue original
+              Voir le catalogue original sur le site officiel de Marjane
             </a>
           )}
+          <p className="text-xs text-gray-500 leading-relaxed mt-4">
+            Les images, le catalogue, les marques et les logos présentés sur
+            cette page appartiennent à Marjane et à leurs ayants droit
+            respectifs. Ils sont reproduits à titre informatif par un site
+            indépendant, non affilié à Marjane.{" "}
+            <a
+              href={catalogue.sourceUrl || MARJANE_OFFICIAL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 underline"
+            >
+              Source officielle
+            </a>
+            .
+          </p>
         </section>
 
         <CommentsSection target="catalogue" targetId={catalogue.id} />

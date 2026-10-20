@@ -28,20 +28,28 @@ model Catalogue {
   offerCount           Int             @default(0)
   articleCount         Int             @default(0)
   aiProcessingProgress Float           @default(0)
+  // Catalogue-level editorial text (worker-generated, human-approved).
+  // `description` holds the intro; picks/tip are stored as JSON/text.
+  editorialPicks       String?
+  editorialTip         String?
+  editorialStatus      String          @default("NONE") // NONE | Generated | Approved
+  editorialChecks      String?
+  editorialGeneratedAt DateTime?
+  editorialApprovedAt  DateTime?
   errorMessage         String?
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   // Per-catalogue OG image overrides (null/empty = inherit global OGSettings)
-  ogBannerTitle      String?
-  ogBannerTitleAr    String?
-  ogBannerSubtitle   String?
-  ogBannerSubtitleAr String?
-  ogBodyText         String?
-  ogBodyTextAr       String?
+  ogBannerTitle        String?
+  ogBannerTitleAr      String?
+  ogBannerSubtitle     String?
+  ogBannerSubtitleAr   String?
+  ogBodyText           String?
+  ogBodyTextAr         String?
   // Number of first pages joined as OG background (null = inherit global)
-  ogCoverPages       Int?
+  ogCoverPages         Int?
   // OG image language override: "fr" | "ar" (null = inherit global)
-  ogLang             String?
+  ogLang               String?
   aiJobs               AIJob[]
   articles             Article[]
   pages                CataloguePage[]
@@ -55,23 +63,27 @@ model Catalogue {
 }
 
 model CataloguePage {
-  id            String    @id @default(uuid())
-  catalogueId   String
-  pageNumber    Int
-  imagePath     String?
-  extractedText String?
-  aiAnalysis    String?
-  pageType      String?
-  category      String?
-  productCount  Int       @default(0)
-  status        String    @default("PENDING")
-  aiModel       String?
-  confidence    Float?
-  processedAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  catalogue     Catalogue @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
-  offers        Offer[]
+  id               String    @id @default(uuid())
+  catalogueId      String
+  pageNumber       Int
+  imagePath        String?
+  extractedText    String?
+  aiAnalysis       String?
+  // Human-readable page layer, produced in the same AI call as the analysis.
+  editorialTitle   String?
+  editorialSummary String?
+  imageAlt         String?
+  pageType         String?
+  category         String?
+  productCount     Int       @default(0)
+  status           String    @default("PENDING")
+  aiModel          String?
+  confidence       Float?
+  processedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  catalogue        Catalogue @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
+  offers           Offer[]
 
   @@unique([catalogueId, pageNumber])
   @@index([catalogueId])
@@ -271,21 +283,21 @@ model WorkerSettings {
 }
 
 model SearchConsoleRow {
-  id              String    @id @default(uuid())
-  url             String
+  id           String    @id @default(uuid())
+  url          String
   // 28-day aggregate window this snapshot covers
-  windowStart     DateTime
-  windowEnd       DateTime
-  clicks          Int       @default(0)
-  impressions     Int       @default(0)
-  ctr             Float     @default(0)
-  position        Float     @default(0)
+  windowStart  DateTime
+  windowEnd    DateTime
+  clicks       Int       @default(0)
+  impressions  Int       @default(0)
+  ctr          Float     @default(0)
+  position     Float     @default(0)
   // URL Inspection verdict (on-demand, quota-limited): e.g. PASS / PARTIAL / FAIL / NEUTRAL
-  indexVerdict    String?
-  indexDetail     String?
-  inspectedAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  indexVerdict String?
+  indexDetail  String?
+  inspectedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@unique([url, windowStart, windowEnd])
   @@index([url])
@@ -370,7 +382,7 @@ model ContactMessage {
 }
 
 model Comment {
-  id          String    @id @default(uuid())
+  id          String        @id @default(uuid())
   targetType  String // "catalogue" | "article" | "product"
   catalogueId String?
   articleId   String?
@@ -378,13 +390,13 @@ model Comment {
   parentId    String?
   author      String
   content     String
-  status      String    @default("PENDING")
-  createdAt   DateTime  @default(now())
-  catalogue   Catalogue? @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
-  article     Article?   @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  product     Product?   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  parent      Comment?   @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies     Comment[]  @relation("CommentReplies")
+  status      String        @default("PENDING")
+  createdAt   DateTime      @default(now())
+  catalogue   Catalogue?    @relation(fields: [catalogueId], references: [id], onDelete: Cascade)
+  article     Article?      @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  product     Product?      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  parent      Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[]     @relation("CommentReplies")
   votes       CommentVote[]
 
   @@index([catalogueId])
@@ -407,17 +419,17 @@ model CommentVote {
 /// Star ratings for products. Moderated (PENDING → PUBLISHED) like comments.
 /// One review per pseudo per product; helpfulness via ReviewVote.
 model Review {
-  id        String   @id @default(uuid())
+  id        String       @id @default(uuid())
   productId String
   author    String
   rating    Int
   title     String?
   content   String
   recommend Boolean?
-  status    String   @default("PENDING")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  status    String       @default("PENDING")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   votes     ReviewVote[]
 
   @@index([productId, status])

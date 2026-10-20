@@ -54,6 +54,7 @@ export async function PATCH(
       "PROCESSING",
       "EXTRACTING",
       "ANALYZING",
+      "EDITORIAL",
       "STRUCTURING",
       "GENERATING",
       "REVIEW",
@@ -133,8 +134,19 @@ export async function PATCH(
 
     const oldCatalogue = await prisma.catalogue.findUnique({
       where: { id },
-      select: { status: true, slug: true },
+      select: { status: true, slug: true, editorialStatus: true },
     });
+
+    // Editorial gate: a catalogue can only go live with approved text.
+    if (data.status === "PUBLISHED" && oldCatalogue?.editorialStatus !== "Approved") {
+      return NextResponse.json(
+        {
+          error:
+            "Le texte éditorial doit être approuvé avant de publier ce catalogue.",
+        },
+        { status: 409 }
+      );
+    }
 
     const updated = await prisma.catalogue.update({
       where: { id },

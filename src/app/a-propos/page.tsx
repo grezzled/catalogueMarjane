@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BreadcrumbListJsonLd } from "@/components/json-ld";
+import { MARJANE_OFFICIAL_URL } from "@/lib/links";
 
 export const metadata = {
   title: "À propos - Catalogue Marjane Maroc",
@@ -109,8 +110,18 @@ export default function AProposPage() {
           <p className="text-gray-600 leading-relaxed">
             Ce site{" "}
             <strong className="text-gray-900">n&apos;est pas affilié à Marjane</strong>.
-            Les noms de marque, les produits et les catalogues appartiennent à
-            leurs propriétaires respectifs.
+            Les images, catalogues, noms de marque, produits, logos et marques
+            appartiennent à leurs propriétaires respectifs. Retrouvez les
+            informations officielles sur{" "}
+            <a
+              href={MARJANE_OFFICIAL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 font-medium underline"
+            >
+              marjane.ma
+            </a>
+            .
           </p>
         </section>
 

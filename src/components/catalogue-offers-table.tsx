@@ -45,7 +45,6 @@ function isLot(o: ExplorerOffer): boolean {
 
 type SortKey = "discount" | "priceAsc" | "priceDesc" | "name";
 
-const PAGE_SIZES = [10, 20, 50];
 
 export default function CatalogueOffersTable({ offers, catalogueSlug, catalogueTitle }: Props) {
   const [query, setQuery] = useState("");
@@ -54,8 +53,6 @@ export default function CatalogueOffersTable({ offers, catalogueSlug, catalogueT
   const [smallPriceOnly, setSmallPriceOnly] = useState(false);
   const [lotOnly, setLotOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>("discount");
-  const [pageSize, setPageSize] = useState(10);
-  const [visible, setVisible] = useState(10);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -92,7 +89,7 @@ export default function CatalogueOffersTable({ offers, catalogueSlug, catalogueT
     return list;
   }, [offers, query, category, bigDealOnly, smallPriceOnly, lotOnly, sort]);
 
-  const shown = filtered.slice(0, visible);
+  const shown = filtered;
   const hasFilters =
     query.trim() !== "" || category !== "Toutes" || bigDealOnly || smallPriceOnly || lotOnly;
 
@@ -103,8 +100,6 @@ export default function CatalogueOffersTable({ offers, catalogueSlug, catalogueT
     setSmallPriceOnly(false);
     setLotOnly(false);
     setSort("discount");
-    setPageSize(10);
-    setVisible(10);
   }
 
   function toggleSort(key: "name" | SortKey) {
@@ -137,10 +132,7 @@ export default function CatalogueOffersTable({ offers, catalogueSlug, catalogueT
                 <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setVisible(pageSize);
-                  }}
+                  onChange={(e) => setQuery(e.target.value)}
                   placeholder="Ex : Riz, Blender, TV, Lait, Couches…"
                   className="w-full rounded-xl border-0 bg-white pl-9 pr-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-white/70 focus:outline-none"
                 />
@@ -151,10 +143,7 @@ export default function CatalogueOffersTable({ offers, catalogueSlug, catalogueT
               <span className="relative block">
                 <select
                   value={category}
-                  onChange={(e) => {
-                    setCategory(e.target.value);
-                    setVisible(pageSize);
-                  }}
+                  onChange={(e) => setCategory(e.target.value)}
                   className="w-full appearance-none rounded-xl border-0 bg-white pl-3 pr-9 py-2.5 text-sm font-medium text-gray-900 focus:ring-2 focus:ring-white/70 focus:outline-none cursor-pointer"
                 >
                   {categories.map((c) => (
@@ -186,10 +175,7 @@ export default function CatalogueOffersTable({ offers, catalogueSlug, catalogueT
                 <input
                   type="checkbox"
                   checked={t.checked}
-                  onChange={(e) => {
-                    t.set(e.target.checked);
-                    setVisible(pageSize);
-                  }}
+                  onChange={(e) => t.set(e.target.checked)}
                   className="h-4 w-4 rounded accent-white"
                 />
                 <span className={t.checked ? "font-semibold" : "text-blue-50"}>{t.label}</span>
@@ -200,27 +186,9 @@ export default function CatalogueOffersTable({ offers, catalogueSlug, catalogueT
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-2 px-4 sm:px-6 py-3.5 border-b border-gray-100 text-sm">
-          <span className="text-gray-600 shrink-0">Afficher</span>
-          <span className="relative inline-flex shrink-0">
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setPageSize(n);
-                setVisible(n);
-              }}
-              aria-label="Nombre de produits affichés"
-              className="appearance-none border border-gray-200 rounded-lg pl-2.5 pr-7 py-1 text-sm font-semibold text-gray-800 focus:outline-none focus:border-blue-500 cursor-pointer bg-white"
-            >
-              {PAGE_SIZES.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="h-3.5 w-3.5 text-gray-400 pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
+          <span className="text-gray-600 shrink-0">
+            {filtered.length} offre{filtered.length > 1 ? "s" : ""} affichée{filtered.length > 1 ? "s" : ""}
           </span>
-          <span className="text-gray-600 shrink-0">produits</span>
           <span className="text-xs text-gray-400 tabular-nums whitespace-nowrap ml-auto">
             {filtered.length} / {offers.length} offre{filtered.length > 1 ? "s" : ""}
           </span>
@@ -407,16 +375,6 @@ export default function CatalogueOffersTable({ offers, catalogueSlug, catalogueT
               ))}
             </ul>
 
-            {visible < filtered.length && (
-              <div className="px-4 sm:px-6 py-4 border-t border-gray-100 text-center">
-                <button
-                  onClick={() => setVisible((v) => v + pageSize)}
-                  className="inline-flex items-center justify-center rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-bold text-gray-700 hover:border-blue-300 hover:text-blue-700 transition-colors"
-                >
-                  Voir plus ({filtered.length - visible} restantes)
-                </button>
-              </div>
-            )}
           </>
         )}
       </div>

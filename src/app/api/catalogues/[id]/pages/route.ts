@@ -26,6 +26,9 @@ export async function GET(
         extractedText: true,
         imagePath: true,
         aiAnalysis: true,
+        editorialTitle: true,
+        editorialSummary: true,
+        imageAlt: true,
       },
     });
 
