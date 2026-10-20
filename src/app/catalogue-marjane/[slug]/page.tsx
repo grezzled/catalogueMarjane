@@ -38,6 +38,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!catalogue || catalogue.status !== "PUBLISHED") return { title: "Catalogue non trouvé" };
 
+  const isExpired = catalogue.endDate < new Date();
   const dates = formatDateRange(catalogue.startDate, catalogue.endDate);
   const offerCount = catalogue.offers.length;
   const maxDiscount = catalogue.offers.reduce(
@@ -56,6 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `Catalogue Marjane ${dates} - Promotions et Offres`,
     description: desc,
+    robots: isExpired ? { index: false, follow: true } : undefined,
     alternates: {
       canonical: `/catalogue-marjane/${catalogue.slug}`,
     },
@@ -202,6 +204,19 @@ export default async function CatalogueDetailPage({ params }: Props) {
 
   const isExpired = catalogue.endDate < now;
   const isCurrent = catalogue.startDate <= now && catalogue.endDate >= now;
+
+  // Expired pages are noindexed; point visitors to the catalogue running now.
+  const currentCatalogue = isExpired
+    ? await prisma.catalogue.findFirst({
+        where: {
+          status: "PUBLISHED",
+          startDate: { lte: now },
+          endDate: { gte: now },
+        },
+        orderBy: { startDate: "desc" },
+        select: { slug: true, title: true },
+      })
+    : null;
 
   // Unique per-catalogue numbers-as-text: category breakdown for SEO + UX.
   const categoryStats = (() => {
@@ -378,6 +393,37 @@ export default async function CatalogueDetailPage({ params }: Props) {
           </div>
         </div>
       </header>
+
+      {isExpired && (
+        <section className="bg-amber-50 border-b border-amber-200" aria-label="Catalogue expiré">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-amber-900 leading-relaxed">
+              <strong>Ce catalogue est expiré.</strong> Les prix affichés ne
+              sont plus valables.{" "}
+              {currentCatalogue
+                ? `Voici le catalogue actuel : ${currentCatalogue.title}.`
+                : "Retrouvez les offres en cours dans nos catalogues et promotions."}
+            </p>
+            {currentCatalogue ? (
+              <Link
+                href={`/catalogue-marjane/${currentCatalogue.slug}`}
+                className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-600"
+              >
+                Voir le catalogue actuel
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            ) : (
+              <Link
+                href="/promotions-marjane"
+                className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-amber-600"
+              >
+                Voir les promotions en cours
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-8 [&>section]:mb-0">

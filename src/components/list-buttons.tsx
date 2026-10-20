@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Check, ListPlus, ShoppingCart } from "lucide-react";
+import { Check, ListPlus } from "lucide-react";
 import { addToList, loadList, onListChange, removeFromList } from "@/lib/shopping-list";
 
 /** "＋ Liste" toggle button — drops onto product cards, pages and modals. */
@@ -49,30 +48,5 @@ export function AddToListButton({ slug, compact = false }: { slug: string; compa
       {inList ? <Check className="h-4 w-4" strokeWidth={3} /> : <ListPlus className="h-4 w-4" />}
       {inList ? "Dans la liste ✓" : "＋ Ma liste"}
     </button>
-  );
-}
-
-/** Navbar icon with live item count badge. */
-export function ShoppingListBadge() {
-  const [count, setCount] = useState(() => loadList().length);
-
-  useEffect(() => {
-    return onListChange(() => setCount(loadList().length));
-  }, []);
-
-  return (
-    <Link
-      href="/liste"
-      aria-label={count > 0 ? `Ma liste (${count} produits)` : "Ma liste"}
-      title="Ma liste"
-      className="relative text-gray-600 hover:text-gray-900 inline-flex items-center p-1"
-    >
-      <ShoppingCart className="h-5 w-5" />
-      {count > 0 && (
-        <span className="absolute -top-1 -right-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full px-1 py-px tabular-nums min-w-4 text-center leading-tight">
-          {count > 99 ? "99+" : count}
-        </span>
-      )}
-    </Link>
   );
 }

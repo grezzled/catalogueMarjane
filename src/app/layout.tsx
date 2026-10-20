@@ -1,10 +1,12 @@
 import "./globals.css";
 import Link from "next/link";
-import Script from "next/script";
 import Navbar from "@/components/navbar";
 import BottomNav from "@/components/bottom-nav";
 import WhatsAppFloat from "@/components/whatsapp-float";
 import PageviewTracker from "@/components/pageview-tracker";
+import CookieConsent from "@/components/cookie-consent";
+import GoogleAnalytics from "@/components/google-analytics";
+import WhatsAppPopup from "@/components/whatsapp-popup";
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://cataloguemarjane.com"),
@@ -45,21 +47,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <head>
-        {/* Google tag (gtag.js) — G-P9QXX1D00E, loads on every page */}
-        <Script
-          async
-          src="https://www.googletagmanager.com/gtag/js?id=G-P9QXX1D00E"
-        />
-        <Script id="gtag-init">
-          {`window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'G-P9QXX1D00E');`}
-        </Script>
-      </head>
       <body className="antialiased">
         <PageviewTracker />
+        <GoogleAnalytics />
         <Navbar />
         <main>{children}</main>
         <footer className="bg-gray-900 text-gray-400 mt-16">
@@ -70,7 +60,7 @@ gtag('config', 'G-P9QXX1D00E');`}
                   <span className="text-lg font-bold text-white">
                     Catalogue Marjane
                   </span>
-                  <span className="text-[10px] font-medium text-gray-400 bg-white/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  <span className="text-sm font-bold text-amber-300 bg-amber-400/15 border border-amber-400/40 px-3 py-1 rounded-full whitespace-nowrap uppercase tracking-wide">
                     Site non officiel
                   </span>
                 </Link>
@@ -126,6 +116,14 @@ gtag('config', 'G-P9QXX1D00E');`}
                   </li>
                   <li>
                     <Link
+                      href="/contact"
+                      className="hover:text-white transition-colors"
+                    >
+                      Contact
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
                       href="/conditions-utilisation"
                       className="hover:text-white transition-colors"
                     >
@@ -156,6 +154,8 @@ gtag('config', 'G-P9QXX1D00E');`}
         </footer>
         <BottomNav />
         <WhatsAppFloat />
+        <CookieConsent />
+        <WhatsAppPopup />
       </body>
     </html>
   );

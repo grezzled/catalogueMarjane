@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, BookOpen, Tag, Search, Newspaper } from "lucide-react";
-import { ShoppingListBadge } from "@/components/list-buttons";
 
 const NAV_ITEMS = [
   { href: "/catalogue-marjane", label: "Catalogues", icon: BookOpen, match: (p: string) => p.startsWith("/catalogue-marjane") },
@@ -22,7 +21,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <span className="text-xl font-bold text-blue-600">Catalogue Marjane</span>
-          <span className="hidden sm:inline text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap">Site non officiel</span>
+          <span className="hidden sm:inline text-sm font-bold text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1 rounded-full whitespace-nowrap uppercase tracking-wide">Site non officiel</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-1.5 text-sm">
@@ -44,7 +43,6 @@ export default function Navbar() {
               </Link>
             );
           })}
-          <ShoppingListBadge />
         </div>
 
         <button
@@ -87,9 +85,6 @@ export default function Navbar() {
             >
               Articles
             </Link>
-            <span onClick={() => setIsOpen(false)} className="block">
-              <ShoppingListBadge />
-            </span>
           </div>
         </div>
       )}

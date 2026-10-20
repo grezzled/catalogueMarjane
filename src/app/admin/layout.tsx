@@ -24,10 +24,12 @@ export default async function AdminLayout({
 
   let pendingComments = 0;
   let pendingReviews = 0;
+  let unreadMessages = 0;
   try {
-    [pendingComments, pendingReviews] = await Promise.all([
+    [pendingComments, pendingReviews, unreadMessages] = await Promise.all([
       prisma.comment.count({ where: { status: "PENDING" } }),
       prisma.review.count({ where: { status: "PENDING" } }),
+      prisma.contactMessage.count({ where: { status: "NEW" } }),
     ]);
   } catch {
     // tables may predate migration — badges simply stay hidden
@@ -61,6 +63,14 @@ export default async function AdminLayout({
             {pendingReviews > 0 && (
               <span className="bg-amber-400 text-amber-950 text-[11px] font-bold rounded-full px-1.5 py-0.5 tabular-nums">
                 {pendingReviews}
+              </span>
+            )}
+          </Link>
+          <Link href="/admin/messages" className="hover:text-gray-300 inline-flex items-center gap-1.5">
+            Messages
+            {unreadMessages > 0 && (
+              <span className="bg-amber-400 text-amber-950 text-[11px] font-bold rounded-full px-1.5 py-0.5 tabular-nums">
+                {unreadMessages}
               </span>
             )}
           </Link>

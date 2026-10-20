@@ -49,28 +49,20 @@ export async function buildSitemapUrls(
     { loc: `${baseUrl}/produits`, lastmod: now.toISOString(), changefreq: "daily", priority: 0.9 },
     { loc: `${baseUrl}/articles`, lastmod: now.toISOString(), changefreq: "weekly", priority: 0.7 },
     { loc: `${baseUrl}/a-propos`, lastmod: now.toISOString(), changefreq: "monthly", priority: 0.5 },
+    { loc: `${baseUrl}/contact`, lastmod: now.toISOString(), changefreq: "yearly", priority: 0.4 },
     { loc: `${baseUrl}/conditions-utilisation`, lastmod: now.toISOString(), changefreq: "yearly", priority: 0.3 },
     { loc: `${baseUrl}/politique-confidentialite`, lastmod: now.toISOString(), changefreq: "yearly", priority: 0.3 },
   ];
 
-  // Active catalogues rank high; expired (archive) stay accessible but demoted.
+  // Expired catalogues are noindexed, so they stay out of the sitemap.
   for (const catalogue of publishedCatalogues) {
-    const isExpired = new Date(catalogue.endDate) < now;
-    urls.push(
-      isExpired
-        ? {
-            loc: `${baseUrl}/catalogue-marjane/${catalogue.slug}`,
-            lastmod: toIso(catalogue.updatedAt),
-            changefreq: "yearly",
-            priority: 0.3,
-          }
-        : {
-            loc: `${baseUrl}/catalogue-marjane/${catalogue.slug}`,
-            lastmod: toIso(catalogue.updatedAt),
-            changefreq: catalogue.slug === latestSlug ? "daily" : "weekly",
-            priority: catalogue.slug === latestSlug ? 1.0 : 0.8,
-          }
-    );
+    if (new Date(catalogue.endDate) < now) continue;
+    urls.push({
+      loc: `${baseUrl}/catalogue-marjane/${catalogue.slug}`,
+      lastmod: toIso(catalogue.updatedAt),
+      changefreq: catalogue.slug === latestSlug ? "daily" : "weekly",
+      priority: catalogue.slug === latestSlug ? 1.0 : 0.8,
+    });
   }
 
   const categories = await prisma.category.findMany({
@@ -110,10 +102,18 @@ export async function buildSitemapUrls(
     });
   }
 
-  // Product pages with at least one published offer (price history).
-  // Single-offer products still qualify: the page is a valid offer landing.
+  // Product pages with at least one active offer. Products whose offers have
+  // all expired are noindexed, so they are excluded here as well.
   const products = await prisma.product.findMany({
-    where: { offers: { some: { catalogue: { status: "PUBLISHED" } } } },
+    where: {
+      offers: {
+        some: {
+          startDate: { lte: now },
+          endDate: { gte: now },
+          catalogue: { status: "PUBLISHED" },
+        },
+      },
+    },
     select: { slug: true, updatedAt: true },
   });
   for (const product of products) {

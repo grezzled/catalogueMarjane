@@ -39,6 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${displayName} - Prix et historique | Catalogue Marjane`,
     description: desc,
+    robots: product.currentOffer ? undefined : { index: false, follow: true },
     alternates: { canonical: `/produit/${product.slug}` },
     openGraph: {
       title: `${displayName} - ${price != null ? `${price.toLocaleString()} DH` : "Suivi de prix"}`,
@@ -199,7 +200,13 @@ export default async function ProductDetailPage({ params }: Props) {
                 <div className="bg-white rounded-lg shadow p-5 mb-4">
                   <p className="text-sm text-gray-500">Dernier prix observé</p>
                   <span className="text-4xl font-bold text-gray-900">{product.stats.lowest.toLocaleString()} DH</span>
-                  <p className="text-sm text-gray-500 mt-1">Produit non promu en ce moment — son historique ci-dessous aide à décider s&apos;il faut attendre.</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Produit non promu en ce moment — son historique ci-dessous
+                    aide à décider s&apos;il faut attendre.{" "}
+                    <Link href="/promotions-marjane" className="text-blue-600 hover:underline font-medium">
+                      Voir les promotions en cours
+                    </Link>
+                  </p>
                 </div>
               )
             )}

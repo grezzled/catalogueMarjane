@@ -295,10 +295,10 @@ export default async function ArticlePage({ params }: Props) {
     url: `/articles/${article.slug}`,
     datePublished: article.publishedAt?.toISOString(),
     dateModified: article.updatedAt.toISOString(),
-    author: {
-      "@type": "Organization",
-      name: "Catalogue Marjane",
-    },
+    author:
+      article.author === "Catalogue Marjane"
+        ? { "@type": "Organization", name: article.author }
+        : { "@type": "Person", name: article.author },
   };
 
   const renderedContent = renderContent(article.content);
@@ -372,6 +372,10 @@ export default async function ArticlePage({ params }: Props) {
             <span className="text-xs bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-full font-medium">
               {articleTypeLabel(article.articleType)}
               {article.articleFocus ? ` — ${article.articleFocus}` : ""}
+            </span>
+            <span className="text-blue-200 text-sm flex items-center gap-1.5">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+              Par {article.author}
             </span>
             {article.publishedAt && (
               <span className="text-blue-200 text-sm flex items-center gap-1.5">

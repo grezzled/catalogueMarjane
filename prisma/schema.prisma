@@ -159,6 +159,7 @@ model Article {
   slug                 String            @unique
   metaTitle            String?
   metaDescription      String?
+  author               String            @default("Catalogue Marjane")
   excerpt              String?
   content              String
   contentHtml          String?
@@ -353,6 +354,19 @@ model Subscriber {
   unsubscribedAt   DateTime?
 
   @@index([active])
+}
+
+/// Messages sent through the public /contact form.
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String?
+  email     String
+  subject   String
+  message   String
+  status    String   @default("NEW")
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt])
 }
 
 model Comment {

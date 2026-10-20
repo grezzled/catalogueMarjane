@@ -4,7 +4,7 @@ import { BreadcrumbListJsonLd } from "@/components/json-ld";
 export const metadata = {
   title: "Politique de confidentialité - Catalogue Marjane Maroc",
   description:
-    "Politique de confidentialité de Catalogue Marjane : données collectées, cookies, utilisation, partage, sécurité et vos droits conformément à la loi 09-08 au Maroc.",
+    "Politique de confidentialité de Catalogue Marjane : données collectées, cookies, Google Analytics, publicité Google AdSense, partage, sécurité et vos droits conformément à la loi 09-08 au Maroc.",
   alternates: {
     canonical: "/politique-confidentialite",
   },
@@ -119,6 +119,9 @@ export default function PolitiqueConfidentialitePage() {
             </Link>
             .
           </p>
+          <p className="text-sm text-gray-400 mt-3">
+            Dernière mise à jour : 20 octobre 2026.
+          </p>
         </section>
 
         <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-8 mb-6">
@@ -192,6 +195,10 @@ export default function PolitiqueConfidentialitePage() {
               d&apos;améliorer le contenu.
             </li>
             <li>
+              Afficher des annonces publicitaires, le cas échéant, et mesurer
+              leur performance.
+            </li>
+            <li>
               Répondre à vos messages lorsque vous nous contactez.
             </li>
             <li>
@@ -205,38 +212,182 @@ export default function PolitiqueConfidentialitePage() {
 
         <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-8 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
-            4. Cookies et mesure d&apos;audience
+            4. Cookies et technologies similaires
           </h2>
-          <p className="text-gray-600 leading-relaxed">
-            Le site peut utiliser des cookies strictement nécessaires à son
-            fonctionnement ainsi que des cookies de mesure d&apos;audience pour
-            comprendre comment les visiteurs utilisent le site. Vous pouvez à
-            tout moment refuser ou supprimer les cookies depuis les paramètres
-            de votre navigateur ; certaines fonctionnalités du site peuvent
-            alors être limitées. Si des services tiers (mesure d&apos;audience,
-            publicité) sont activés, ils peuvent déposer leurs propres cookies
-            selon leurs propres politiques.
+          <p className="text-gray-600 leading-relaxed mb-3">
+            Un cookie est un petit fichier texte stocké sur votre appareil
+            (ordinateur, tablette ou téléphone) lors de la consultation
+            d&apos;un site. Nous utilisons les catégories de cookies suivantes :
+          </p>
+          <ul className="list-disc pl-6 space-y-2 text-gray-600 leading-relaxed">
+            <li>
+              <strong className="text-gray-900">
+                Cookies strictement nécessaires :
+              </strong>{" "}
+              ils assurent le fonctionnement du site et sa sécurité, ainsi que
+              la mémorisation de certaines préférences (par exemple votre liste
+              de courses). Ils ne servent pas à vous suivre à des fins
+              publicitaires.
+            </li>
+            <li>
+              <strong className="text-gray-900">
+                Cookies de mesure d&apos;audience :
+              </strong>{" "}
+              ils nous permettent de comprendre la fréquentation du site
+              (nombre de visites, pages consultées, provenance). Voir la
+              section 5 consacrée à Google Analytics.
+            </li>
+            <li>
+              <strong className="text-gray-900">
+                Cookies publicitaires :
+              </strong>{" "}
+              lorsque de la publicité est affichée, Google et ses partenaires
+              peuvent déposer leurs propres cookies afin de diffuser des
+              annonces. Voir la section 6 consacrée à Google AdSense.
+            </li>
+          </ul>
+          <p className="text-gray-600 leading-relaxed mt-3">
+            Lors de votre première visite, une bannière vous permet
+            d&apos;accepter ou de refuser les cookies non essentiels. Votre
+            choix est conservé pendant six mois dans un cookie de consentement
+            (<code>cm_cookie_consent</code>), puis vous est redemandé. Refuser
+            n&apos;empêche pas le fonctionnement du site : seuls les cookies
+            non essentiels (mesure d&apos;audience, publicité) ne sont pas
+            déposés. Vous pouvez à tout moment retirer votre consentement en
+            supprimant ce cookie ou les cookies depuis les paramètres de votre
+            navigateur ; certaines fonctionnalités peuvent alors être limitées.
+            Les cookies déposés par des services tiers sont régis par les
+            politiques de confidentialité de ces services.
           </p>
         </section>
 
         <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-8 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
-            5. Partage et conservation
+            5. Google Analytics
+          </h2>
+          <p className="text-gray-600 leading-relaxed mb-3">
+            Nous utilisons <strong className="text-gray-900">Google Analytics 4</strong>{" "}
+            (identifiant de mesure <strong className="text-gray-900">G-P9QXX1D00E</strong>),
+            un service de mesure d&apos;audience fourni par Google LLC. Il nous
+            aide à comprendre le nombre de visiteurs, les pages les plus
+            consultées et la provenance du trafic afin d&apos;améliorer le
+            site.
+          </p>
+          <p className="text-gray-600 leading-relaxed mb-3">
+            Google Analytics n&apos;est chargé qu&apos;après votre acceptation
+            des cookies non essentiels. Google Analytics utilise des cookies
+            (notamment <code>_ga</code> et <code>_ga_*</code>) et collecte des
+            données telles que l&apos;adresse IP (raccourcie lorsque la
+            fonctionnalité d&apos;anonymisation est active), le type
+            d&apos;appareil, le navigateur, la provenance de la visite et les
+            interactions avec le site. Ces données sont traitées par Google
+            conformément à sa politique de confidentialité.
+          </p>
+          <p className="text-gray-600 leading-relaxed">
+            Vous pouvez empêcher la collecte de vos données par Google Analytics
+            en installant le module de désactivation officiel :{" "}
+            <a
+              href="https://tools.google.com/dlpage/gaoptout"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 font-medium break-words"
+            >
+              tools.google.com/dlpage/gaoptout
+            </a>
+            . Vous pouvez également refuser les cookies depuis votre navigateur.
+          </p>
+        </section>
+
+        <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-8 mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            6. Publicité et Google AdSense
+          </h2>
+          <p className="text-gray-600 leading-relaxed mb-3">
+            Le site peut afficher des annonces publicitaires, notamment via{" "}
+            <strong className="text-gray-900">Google AdSense</strong>. Google et
+            ses partenaires utilisent des cookies, y compris des cookies
+            publicitaires, pour diffuser des annonces fondées sur vos visites
+            antérieures sur ce site ou sur d&apos;autres sites. Ces cookies
+            permettent de présenter des publicités plus pertinentes et de
+            mesurer leur efficacité ; ils ne nous donnent pas accès à votre
+            identité.
+          </p>
+          <ul className="list-disc pl-6 space-y-2 text-gray-600 leading-relaxed mb-3">
+            <li>
+              Comment Google utilise les informations provenant des sites et
+              applications qui utilisent ses services :{" "}
+              <a
+                href="https://policies.google.com/technologies/partner-sites"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-700 font-medium break-words"
+              >
+                policies.google.com/technologies/partner-sites
+              </a>
+            </li>
+            <li>
+              Règles et technologies publicitaires de Google :{" "}
+              <a
+                href="https://policies.google.com/technologies/ads"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-700 font-medium break-words"
+              >
+                policies.google.com/technologies/ads
+              </a>
+            </li>
+            <li>
+              Désactiver la personnalisation des annonces Google :{" "}
+              <a
+                href="https://adssettings.google.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-700 font-medium break-words"
+              >
+                adssettings.google.com
+              </a>
+            </li>
+            <li>
+              Désactiver les cookies des fournisseurs publicitaires tiers :{" "}
+              <a
+                href="https://www.aboutads.info/choices/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-700 font-medium break-words"
+              >
+                aboutads.info/choices
+              </a>
+            </li>
+          </ul>
+          <p className="text-gray-600 leading-relaxed">
+            Nous ne contrôlons pas les cookies utilisés par les annonceurs
+            tiers ; ceux-ci sont régis par leurs propres politiques de
+            confidentialité. Vous pouvez également gérer ou supprimer les
+            cookies depuis les paramètres de votre navigateur.
+          </p>
+        </section>
+
+        <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-8 mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            7. Partage et conservation
           </h2>
           <p className="text-gray-600 leading-relaxed">
             Vos données ne sont partagées qu&apos;avec les prestataires
-            techniques strictement nécessaires à l&apos;hébergement et au
-            fonctionnement du site, ou lorsque la loi l&apos;exige. Les
-            journaux techniques sont conservés pour une durée limitée,
-            proportionnée à leur finalité (sécurité, statistiques), puis
-            supprimés ou anonymisés. Les messages que vous nous envoyez sont
-            conservés uniquement le temps nécessaire à leur traitement.
+            techniques strictement nécessaires à l&apos;hébergement, au
+            fonctionnement du site et à la mesure d&apos;audience ou à la
+            publicité (Google notamment), ou lorsque la loi l&apos;exige.
+            Certains prestataires peuvent traiter des données en dehors du
+            Maroc, dans le respect de leurs engagements de protection des
+            données. Les journaux techniques sont conservés pour une durée
+            limitée, proportionnée à leur finalité (sécurité, statistiques),
+            puis supprimés ou anonymisés. Les messages que vous nous envoyez
+            sont conservés uniquement le temps nécessaire à leur traitement.
           </p>
         </section>
 
         <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-8 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
-            6. Vos droits
+            8. Vos droits
           </h2>
           <p className="text-gray-600 leading-relaxed mb-3">
             Conformément à la loi n° 09-08 relative à la protection des
@@ -244,7 +395,14 @@ export default function PolitiqueConfidentialitePage() {
             caractère personnel au Maroc, vous disposez d&apos;un droit
             d&apos;accès, de rectification et d&apos;opposition concernant vos
             données personnelles. Pour exercer ces droits ou poser une question
-            sur cette politique, contactez-nous en précisant votre demande.
+            sur cette politique,{" "}
+            <Link
+              href="/contact"
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              contactez-nous
+            </Link>{" "}
+            en précisant votre demande.
           </p>
           <p className="text-gray-600 leading-relaxed">
             Vous pouvez également adresser une réclamation à la Commission
@@ -255,7 +413,7 @@ export default function PolitiqueConfidentialitePage() {
 
         <section className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-8 mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
-            7. Sécurité et modifications
+            9. Sécurité et modifications
           </h2>
           <p className="text-gray-600 leading-relaxed">
             Nous mettons en œuvre des mesures raisonnables pour protéger vos
