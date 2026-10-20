@@ -39,14 +39,18 @@ echo "==> 2/4 push .next (build output, cache excluded)"
 # shellcheck disable=SC2086
 rsync -avz --delete $DRY --exclude "cache/" -e "$RSYNC_SSH" ".next/" "${PROD_HOST}:${PROD_ROOT}/.next/"
 
-echo "==> 3/4 push uploads, store logos, sitemap (prod *.db/.env untouched)"
+echo "==> 3/4 push uploads and store logos (prod *.db/.env untouched)"
 for d in uploads stores; do
+  if [ ! -d "public/$d" ]; then
+    echo "→ $d (skipped: not present locally)"
+    continue
+  fi
   echo "→ $d"
   # shellcheck disable=SC2086
   rsync -avz --delete $DRY --exclude "*.db" -e "$RSYNC_SSH" "public/$d/" "${PROD_HOST}:${PROD_ROOT}/public/$d/"
 done
-# shellcheck disable=SC2086
-rsync -avz $DRY -e "$RSYNC_SSH" "public/sitemap.xml" "${PROD_HOST}:${PROD_ROOT}/public/sitemap.xml"
+# sitemap.xml is generated on prod from its own DB (marjane-sitemap cron),
+# so pushing the local copy would publish local-only data.
 
 if [ "$SKIP_RESTART" = "1" ]; then
   echo "==> 4/4 restart skipped (SKIP_RESTART=1) — run on server: pm2 restart ${PROD_PM2} --update-env"
